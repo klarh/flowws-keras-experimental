@@ -49,9 +49,9 @@ class Train(flowws.Stage):
         if self.arguments['clean_batch_multiple']:
             bs = self.arguments['batch_size']
             x_train = scope['x_train']
-            scope['x_train'] = x_train[:-len(x_train)%bs]
+            scope['x_train'] = x_train[:len(x_train)//bs*bs]
             y_train = scope['y_train']
-            scope['y_train'] = y_train[:-len(y_train)%bs]
+            scope['y_train'] = y_train[:len(y_train)//bs*bs]
 
         ModelCls = scope.get('custom_model_class', keras.models.Model)
         model = ModelCls(scope['input_symbol'], scope['output'])
