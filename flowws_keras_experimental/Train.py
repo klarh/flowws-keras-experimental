@@ -9,6 +9,10 @@ import keras_gtar
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
+try:
+    import tensorflow_addons as tfa
+except ImportError:
+    tfa = None
 
 @flowws.add_stage_arguments
 class Train(flowws.Stage):
@@ -65,6 +69,12 @@ class Train(flowws.Stage):
             callbacks.append(keras.callbacks.ReduceLROnPlateau(
                 patience=self.arguments['reduce_lr'], monitor='val_loss', factor=.5, verbose=True))
 
+        verbose = self.arguments['verbose']
+        if tfa is not None and verbose:
+            callbacks.append(tfa.callbacks.TQDMProgressBar(
+                show_epoch_progress=False, update_per_second=1))
+            verbose = False
+
         with contextlib.ExitStack() as context_stack:
             if self.arguments.get('dump_period', None):
                 modifiers = []
@@ -81,6 +91,6 @@ class Train(flowws.Stage):
                 callbacks.append(cbk)
 
             model.fit(
-                scope['x_train'], scope['y_train'], verbose=self.arguments['verbose'], epochs=self.arguments['epochs'],
+                scope['x_train'], scope['y_train'], verbose=verbose, epochs=self.arguments['epochs'],
                 batch_size=self.arguments['batch_size'], validation_split=self.arguments['validation_split'],
                 callbacks=callbacks)
