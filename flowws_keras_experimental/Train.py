@@ -34,6 +34,8 @@ class Train(flowws.Stage):
             help='If True, print the model summary before training'),
         Arg('verbose', None, bool, True,
             help='If True, print the training progress'),
+        Arg('clean_batch_multiple', None, bool, False,
+            help='If True, make the training data a clean multiple of the batch size'),
     ]
 
     def run(self, scope, storage):
@@ -43,6 +45,13 @@ class Train(flowws.Stage):
             random.seed(random.randrange(2**32))
             np.random.seed(random.randrange(2**32))
             tf.random.set_seed(random.randrange(2**32))
+
+        if self.arguments['clean_batch_multiple']:
+            bs = self.arguments['batch_size']
+            x_train = scope['x_train']
+            scope['x_train'] = x_train[:-len(x_train)%bs]
+            y_train = scope['y_train']
+            scope['y_train'] = y_train[:-len(y_train)%bs]
 
         ModelCls = scope.get('custom_model_class', keras.models.Model)
         model = ModelCls(scope['input_symbol'], scope['output'])
