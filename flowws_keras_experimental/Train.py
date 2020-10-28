@@ -28,6 +28,8 @@ class Train(flowws.Stage):
         Arg('seed', '-s', int),
         Arg('summarize', None, bool, False,
             help='If True, print the model summary before training'),
+        Arg('verbose', None, bool, True,
+            help='If True, print the training progress'),
     ]
 
     def run(self, scope, storage):
@@ -79,6 +81,6 @@ class Train(flowws.Stage):
                 callbacks.append(cbk)
 
             model.fit(
-                scope['x_train'], scope['y_train'], verbose=False, epochs=self.arguments['epochs'],
+                scope['x_train'], scope['y_train'], verbose=self.arguments['verbose'], epochs=self.arguments['epochs'],
                 batch_size=self.arguments['batch_size'], validation_split=self.arguments['validation_split'],
                 callbacks=callbacks)
