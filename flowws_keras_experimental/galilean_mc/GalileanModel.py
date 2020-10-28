@@ -6,10 +6,6 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import backend as K
 
-loss_tracker = keras.metrics.Mean(name='loss')
-rate_tracker = keras.metrics.Mean(name='gradient_step_rate')
-chain_delta_tracker = keras.metrics.Mean(name='chain_delta')
-
 class Model(keras.Model):
     def __init__(self, *args, galilean_steps=10, galilean_distance=1e-3,
                  galilean_batch_timescale=32, galilean_gradient_rate=.2, **kwargs):
@@ -18,6 +14,10 @@ class Model(keras.Model):
         self.galilean_distance = tf.Variable(galilean_distance, trainable=False, dtype=tf.float32)
         self.galilean_batch_timescale = galilean_batch_timescale
         self.galilean_gradient_rate = galilean_gradient_rate
+
+        self.loss_tracker = keras.metrics.Mean(name='loss')
+        self.rate_tracker = keras.metrics.Mean(name='gradient_step_rate')
+        self.chain_delta_tracker = keras.metrics.Mean(name='chain_delta')
 
     def train_step(self, data):
         x, y = data
@@ -139,15 +139,15 @@ class Model(keras.Model):
                 rate_ratio, 1.0/self.galilean_batch_timescale), tf.float32)
             K.update(self.galilean_distance, new_distance)
 
-        loss_tracker.update_state(loss)
-        rate_tracker.update_state(gradient_rate)
+        self.loss_tracker.update_state(loss)
+        self.rate_tracker.update_state(gradient_rate)
 
         chain_delta = loss - loss0
-        chain_delta_tracker.update_state(chain_delta)
+        self.chain_delta_tracker.update_state(chain_delta)
 
-        return dict(loss=loss_tracker.result(),
-                    gradient_step_rate=rate_tracker.result(),
-                    chain_delta=chain_delta_tracker.result(),
+        return dict(loss=self.loss_tracker.result(),
+                    gradient_step_rate=self.rate_tracker.result(),
+                    chain_delta=self.chain_delta_tracker.result(),
                     )
 
 class DistanceLogger(keras.callbacks.Callback):
