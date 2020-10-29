@@ -76,8 +76,9 @@ class Model(keras.Model):
             vprimes = []
             for (v, g) in zip(velocities, gradients):
                 vflat, gflat = K.flatten(v), K.flatten(g)
-                n = gflat/K.sum(K.square(gflat))
-                vprime = v - K.reshape(2*K.sum(vflat*n)*n, v.shape)
+                norm = tf.clip(tf.linalg.norm(gflat), 1e-5, 1e9)
+                norminvsq = 1.0/norm/norm
+                vprime = v - K.reshape(2*K.sum(vflat*g)*norminvsq*g, v.shape)
                 vprimes.append(vprime)
 
             # x0 - v (S) -> x0 + vprime (E)
