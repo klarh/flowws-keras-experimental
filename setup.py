@@ -96,6 +96,7 @@ setup(name='flowws-keras-experimental',
           'flowws_keras_experimental.images',
           'flowws_keras_experimental.branch_replicas',
           'flowws_keras_experimental.galilean_mc',
+          'flowws_keras_experimental.ring_replicas',
       ],
       python_requires='>=3',
       version=__version__
