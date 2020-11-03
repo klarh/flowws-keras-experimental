@@ -8,16 +8,25 @@ from tensorflow.keras import backend as K
 
 class Model(keras.Model):
     def __init__(self, *args, galilean_steps=10, galilean_distance=1e-3,
-                 galilean_batch_timescale=32, galilean_gradient_rate=.2, **kwargs):
+                 galilean_batch_timescale=32, galilean_gradient_rate=.2,
+                 galilean_gradient_momentum=.999, galilean_gradient_eps=1e-3,
+                 **kwargs):
         super().__init__(*args, **kwargs)
         self.galilean_steps = galilean_steps
         self.galilean_distance = tf.Variable(galilean_distance, trainable=False, dtype=tf.float32)
         self.galilean_batch_timescale = galilean_batch_timescale
         self.galilean_gradient_rate = galilean_gradient_rate
+        self.galilean_gradient_momentum = galilean_gradient_momentum
+        self.galilean_gradient_eps = galilean_gradient_eps
 
-        self.loss_tracker = keras.metrics.Mean(name='loss')
         self.rate_tracker = keras.metrics.Mean(name='gradient_step_rate')
         self.chain_delta_tracker = keras.metrics.Mean(name='chain_delta')
+
+    def compile(self, *args, **kwargs):
+        result = super().compile(*args, **kwargs)
+        self._gradient_ms_accums = [
+            tf.Variable(1., trainable=False) for _ in self.trainable_variables]
+        return result
 
     def train_step(self, data):
         x, y = data
@@ -25,16 +34,19 @@ class Model(keras.Model):
         loss_fun = self.compiled_loss
         trainable_vars = self.trainable_variables
 
-        velocities = [K.random_normal(w.shape)*self.galilean_distance
-                      for w in trainable_vars]
+        velocities = []
+        for (w, g) in zip(trainable_vars, self._gradient_ms_accums):
+            v = K.random_normal(w.shape)
+            scale = self.galilean_distance/K.sqrt(g + self.galilean_gradient_eps)
+            velocities.append(v*scale)
 
         pred0 = self(x, training=True)
         loss0 = K.mean(loss_fun(y, pred0))
 
-        def north_good(lossN, velocities):
-            return lossN, velocities, 0
+        def north_good(lossN, predN, velocities):
+            return lossN, predN, velocities, 0
 
-        def north_bad(loss, velocities):
+        def north_bad(loss, pred, velocities):
             # check south loss
             for (w, v) in zip(trainable_vars, velocities):
                 # x0 + v (N) -> x0 - v (S)
@@ -46,19 +58,19 @@ class Model(keras.Model):
                 predS = self(x, training=True)
                 lossS = K.mean(loss_fun(y, predS))
 
-            south_good_f = functools.partial(south_good, loss, lossS, tape, velocities)
-            south_bad_f = functools.partial(south_bad, loss, velocities)
+            south_good_f = functools.partial(south_good, loss, pred, lossS, tape, velocities)
+            south_bad_f = functools.partial(south_bad, loss, pred, velocities)
             return tf.cond(
                 lossS <= loss0, south_good_f, south_bad_f)
 
-        def south_bad(loss, velocities):
+        def south_bad(loss, pred, velocities):
             # return back to initial position: x0 - v -> x0
             for (w, v) in zip(trainable_vars, velocities):
                 K.update_add(w, v)
 
             new_v = [-v for v in velocities]
 
-            return loss, new_v, 0
+            return loss, pred, new_v, 0
 
         def east_good(vprimes):
             return vprimes, 1
@@ -70,16 +82,21 @@ class Model(keras.Model):
         def fallback_case(velocities):
             return [-v for v in velocities], 1
 
-        def south_good(loss, lossS, tape, velocities):
+        def south_good(loss, pred, lossS, tape, velocities):
             gradients = tape.gradient(lossS, trainable_vars)
 
+            grad_mag_sq = tf.reduce_sum([tf.reduce_sum(K.square(g)) for g in gradients])
+            norm = 1.0/grad_mag_sq
+
             vprimes = []
-            for (v, g) in zip(velocities, gradients):
+            for (v, g, accum) in zip(velocities, gradients, self._gradient_ms_accums):
                 vflat, gflat = K.flatten(v), K.flatten(g)
-                norm = tf.clip(tf.linalg.norm(gflat), 1e-5, 1e9)
-                norminvsq = 1.0/norm/norm
-                vprime = v - K.reshape(2*K.sum(vflat*g)*norminvsq*g, v.shape)
+                vprime = v - K.reshape(2*K.sum(vflat*gflat)*norm*g, v.shape)
                 vprimes.append(vprime)
+
+                new_accum = (self.galilean_gradient_momentum*accum +
+                    (1 - self.galilean_gradient_momentum)*tf.reduce_mean(K.square(g)))
+                K.update(accum, new_accum)
 
             # x0 - v (S) -> x0 + vprime (E)
             for (w, v, vprime) in zip(trainable_vars, velocities, vprimes):
@@ -108,12 +125,12 @@ class Model(keras.Model):
             new_v, gradient_calcs = tf.cond(go_east, east_good_f,
                 lambda: tf.cond(go_west, west_good_f, fallback_case_f))
 
-            return loss, new_v, gradient_calcs
+            return loss, pred, new_v, gradient_calcs
 
-        def loop_cond(i, loss, velocities, gradient_steps):
+        def loop_cond(i, loss, pred, velocities, gradient_steps):
             return i < self.galilean_steps
 
-        def loop_body(i, loss, velocities, gradient_steps):
+        def loop_body(i, loss, pred, velocities, gradient_steps):
             # set x <- x0 + v
             for (w, v) in zip(trainable_vars, velocities):
                 K.update_add(w, v)
@@ -121,15 +138,15 @@ class Model(keras.Model):
             predN = self(x, training=True)
             lossN = K.mean(loss_fun(y, predN))
 
-            north_good_f = functools.partial(north_good, lossN, velocities)
-            north_bad_f = functools.partial(north_bad, loss, velocities)
-            (loss, velocities, delta_gradients) = tf.cond(
+            north_good_f = functools.partial(north_good, lossN, predN, velocities)
+            north_bad_f = functools.partial(north_bad, loss, pred, velocities)
+            (loss, pred, velocities, delta_gradients) = tf.cond(
                 lossN <= loss0, north_good_f, north_bad_f)
 
-            return (i + 1, loss, velocities, gradient_steps + delta_gradients)
+            return (i + 1, loss, pred, velocities, gradient_steps + delta_gradients)
 
-        (_, loss, velocities, gradient_steps) = tf.while_loop(
-            loop_cond, loop_body, (0, loss0, velocities, 0), swap_memory=False)
+        (_, loss, pred, velocities, gradient_steps) = tf.while_loop(
+            loop_cond, loop_body, (0, loss0, pred0, velocities, 0), swap_memory=False)
 
         gradient_rate = tf.cast(gradient_steps, tf.float32)/float(self.galilean_steps)
         if self.galilean_batch_timescale:
@@ -140,16 +157,25 @@ class Model(keras.Model):
                 rate_ratio, 1.0/self.galilean_batch_timescale), tf.float32)
             K.update(self.galilean_distance, new_distance)
 
-        self.loss_tracker.update_state(loss)
         self.rate_tracker.update_state(gradient_rate)
-
         chain_delta = loss - loss0
         self.chain_delta_tracker.update_state(chain_delta)
 
-        return dict(loss=self.loss_tracker.result(),
-                    gradient_step_rate=self.rate_tracker.result(),
-                    chain_delta=self.chain_delta_tracker.result(),
-                    )
+        self.compiled_metrics.update_state(y, pred)
+        result = {m.name: m.result() for m in self.metrics}
+        result['gradient_step_rate'] = self.rate_tracker.result()
+        result['chain_delta'] = self.chain_delta_tracker.result()
+
+        return result
+
+    def test_step(self, data):
+        x, y = data
+
+        pred = self(x, training=False)
+        self.compiled_loss(y, pred)
+        self.compiled_metrics.update_state(y, pred)
+
+        return {m.name: m.result() for m in self.metrics}
 
 class DistanceLogger(keras.callbacks.Callback):
     def on_epoch_end(self, index, logs={}):
