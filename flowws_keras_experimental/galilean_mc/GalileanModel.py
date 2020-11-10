@@ -10,6 +10,7 @@ class Model(keras.Model):
     def __init__(self, *args, galilean_steps=10, galilean_distance=1e-3,
                  galilean_batch_timescale=32, galilean_gradient_rate=.2,
                  galilean_gradient_momentum=.999, galilean_gradient_eps=1e-3,
+                 gradient_descent_rate=0,
                  **kwargs):
         super().__init__(*args, **kwargs)
         self.galilean_steps = galilean_steps
@@ -18,6 +19,7 @@ class Model(keras.Model):
         self.galilean_gradient_rate = galilean_gradient_rate
         self.galilean_gradient_momentum = galilean_gradient_momentum
         self.galilean_gradient_eps = galilean_gradient_eps
+        self.gradient_descent_rate = gradient_descent_rate
 
         self.rate_tracker = keras.metrics.Mean(name='gradient_step_rate')
         self.chain_delta_tracker = keras.metrics.Mean(name='chain_delta')
@@ -29,6 +31,12 @@ class Model(keras.Model):
         return result
 
     def train_step(self, data):
+        return tf.cond(
+            tf.random.uniform([1])[0] <= self.gradient_descent_rate,
+            lambda: super(Model, self).train_step(data),
+            lambda: self.train_step_gmc(data))
+
+    def train_step_gmc(self, data):
         x, y = data
 
         loss_fun = self.compiled_loss
@@ -192,6 +200,8 @@ class GalileanModel(flowws.Stage):
             help='If True, log the move distance'),
         Arg('tune_distance', '-t', bool, False,
             help='Auto-tune the move distance'),
+        Arg('gradient_descent_rate', '-g', float, 0,
+            help='Fraction of steps to use normal gradient descent on'),
     ]
 
     def run(self, scope, storage):
@@ -199,7 +209,9 @@ class GalileanModel(flowws.Stage):
         ModelFun = functools.partial(
             Model, galilean_steps=self.arguments['steps'],
             galilean_distance=self.arguments['move_distance'],
-            galilean_batch_timescale=timescale)
+            galilean_batch_timescale=timescale,
+            gradient_descent_rate=self.arguments['gradient_descent_rate'],
+        )
         scope['custom_model_class'] = ModelFun
 
         if self.arguments['log_move_distance']:
