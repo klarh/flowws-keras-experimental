@@ -36,6 +36,8 @@ class Train(flowws.Stage):
             help='If True, print the training progress'),
         Arg('clean_batch_multiple', None, bool, False,
             help='If True, make the training data a clean multiple of the batch size'),
+        Arg('rebuild_model', '-r', bool, False,
+            help='If True, always rebuild the model when one already exists'),
     ]
 
     def run(self, scope, storage):
@@ -53,20 +55,23 @@ class Train(flowws.Stage):
             y_train = scope['y_train']
             scope['y_train'] = y_train[:len(y_train)//bs*bs]
 
-        ModelCls = scope.get('custom_model_class', keras.models.Model)
-        model = ModelCls(scope['input_symbol'], scope['output'])
+        if 'model' not in scope or self.arguments['rebuild_model']:
+            ModelCls = scope.get('custom_model_class', keras.models.Model)
+            model = ModelCls(scope['input_symbol'], scope['output'])
 
-        scope['model'] = model
+            scope['model'] = model
 
-        for term in scope.get('extra_losses', []):
-            model.add_loss(term)
+            for term in scope.get('extra_losses', []):
+                model.add_loss(term)
 
-        metrics = scope.get('metrics', [])
+            metrics = scope.get('metrics', [])
 
-        model.compile(self.arguments['optimizer'], loss=scope['loss'], metrics=metrics)
+            model.compile(self.arguments['optimizer'], loss=scope['loss'], metrics=metrics)
 
-        if self.arguments['summarize']:
-            model.summary()
+            if self.arguments['summarize']:
+                model.summary()
+        else:
+            model = scope['model']
 
         callbacks = scope.get('callbacks', [])
 
@@ -102,4 +107,6 @@ class Train(flowws.Stage):
             model.fit(
                 scope['x_train'], scope['y_train'], verbose=verbose, epochs=self.arguments['epochs'],
                 batch_size=self.arguments['batch_size'], validation_split=self.arguments['validation_split'],
-                callbacks=callbacks)
+                callbacks=callbacks, initial_epoch=scope.get('last_epoch', 0))
+
+        scope['last_epoch'] = scope.get('last_epoch', 0) + len(model.history.history['loss'])

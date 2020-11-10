@@ -18,7 +18,7 @@ class Save(flowws.Stage):
 
     def run(self, scope, storage):
         history = scope['model'].history.history
-        frame = len(history['loss'])
+        frame = scope.get('last_epoch', len(history['loss']))
 
         varying = []
         for (key, val) in history.items():
