@@ -98,8 +98,8 @@ class Model(keras.Model):
 
             vprimes = []
             for (v, g, accum) in zip(velocities, gradients, self._gradient_ms_accums):
-                vflat, gflat = K.flatten(v), K.flatten(g)
-                vprime = v - K.reshape(2*K.sum(vflat*gflat)*norm*g, v.shape)
+                vflat, gflat = K.flatten(v), -K.flatten(g)
+                vprime = K.reshape(2*K.sum(vflat*gflat)*norm*g, v.shape) - v
                 vprimes.append(vprime)
 
                 new_accum = (self.galilean_gradient_momentum*accum +
