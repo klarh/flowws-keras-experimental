@@ -189,6 +189,41 @@ class DistanceLogger(keras.callbacks.Callback):
     def on_epoch_end(self, index, logs={}):
         logs['galilean_distance'] = K.get_value(self.model.galilean_distance)
 
+class DummyOptimizerWrapper(object):
+    def __init__(self, real_model):
+        self._real_model = real_model
+
+    def __getattr__(self, name):
+        if name == 'lr':
+            return self._real_model.galilean_distance
+        elif name == '_real_model':
+            return object.__getattribute__(self, name)
+        else:
+            raise NotImplementedError(name)
+
+class DummyModelWrapper(object):
+    def __init__(self, real_model):
+        self._real_model = real_model
+
+    def __getattr__(self, name):
+        if name == 'optimizer':
+            return DummyOptimizerWrapper(self._real_model)
+        elif name == '_real_model':
+            return object.__getattribute__(self, name)
+        else:
+            return getattr(self._real_model, name)
+
+class ReduceStepSizeOnPlateau(keras.callbacks.ReduceLROnPlateau):
+    @property
+    def model(self):
+        real_model = self._real_model
+        wrapped_version = DummyModelWrapper(real_model)
+        return wrapped_version
+
+    @model.setter
+    def model(self, value):
+        self._real_model = value
+
 @flowws.add_stage_arguments
 class GalileanModel(flowws.Stage):
     ARGS = [
@@ -199,9 +234,11 @@ class GalileanModel(flowws.Stage):
         Arg('log_move_distance', '-d', bool, False,
             help='If True, log the move distance'),
         Arg('tune_distance', '-t', bool, False,
-            help='Auto-tune the move distance'),
+            help='Auto-tune the move distance based on loss surface reflection rates'),
         Arg('gradient_descent_rate', '-g', float, 0,
             help='Fraction of steps to use normal gradient descent on'),
+        Arg('reduce_distance_period', None, int, 0,
+            help='Patience (in epochs) for a distance reduction method like ReduceLROnPlateau'),
     ]
 
     def run(self, scope, storage):
@@ -216,3 +253,9 @@ class GalileanModel(flowws.Stage):
 
         if self.arguments['log_move_distance']:
             scope.setdefault('callbacks', []).append(DistanceLogger())
+
+        if self.arguments['reduce_distance_period']:
+            callback = ReduceStepSizeOnPlateau(
+                patience=self.arguments['reduce_distance_period'],
+                monitor='val_loss', factor=.75, verbose=True)
+            scope.setdefault('callbacks', []).append(callback)
