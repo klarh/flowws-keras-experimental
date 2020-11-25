@@ -17,16 +17,25 @@ class Save(flowws.Stage):
     ]
 
     def run(self, scope, storage):
-        history = scope['model'].history.history
-        frame = scope.get('last_epoch', len(history['loss']))
 
         varying = []
-        for (key, val) in history.items():
-            val = np.asarray(val)
-            dtype = str(val.dtype).replace('f', 'F').replace('u', 'U').replace('i', 'I')
-            fmt = getattr(gtar.Format, dtype, gtar.Format.Float32)
-            rec = gtar.Record('', key, str(frame), gtar.Behavior.Continuous, fmt, gtar.Resolution.Uniform)
-            varying.append((rec, val))
+        if 'log_quantities' not in scope:
+            history = scope['model'].history.history
+            frame = scope.get('last_epoch', len(history['loss']))
+
+            for (key, val) in history.items():
+                val = np.asarray(val)
+                dtype = str(val.dtype).replace('f', 'F').replace('u', 'U').replace('i', 'I')
+                fmt = getattr(gtar.Format, dtype, gtar.Format.Float32)
+                rec = gtar.Record('', key, str(frame), gtar.Behavior.Continuous, fmt, gtar.Resolution.Uniform)
+                varying.append((rec, val))
+        for (frame, quantities) in scope.get('log_quantities', []):
+            for (key, val) in quantities.items():
+                val = np.asarray(val)
+                dtype = str(val.dtype).replace('f', 'F').replace('u', 'U').replace('i', 'I')
+                fmt = getattr(gtar.Format, dtype, gtar.Format.Float32)
+                rec = gtar.Record('', key, str(frame), gtar.Behavior.Continuous, fmt, gtar.Resolution.Uniform)
+                varying.append((rec, val))
 
         with contextlib.ExitStack() as st:
             modifiers = []

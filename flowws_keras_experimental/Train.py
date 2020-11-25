@@ -104,9 +104,13 @@ class Train(flowws.Stage):
                     handle.name, self.arguments['dump_period'], append=True, when='pre_epoch')
                 callbacks.append(cbk)
 
+            initial_epoch = scope.setdefault('last_epoch', 0)
+            total_epochs = initial_epoch + self.arguments['epochs']
             model.fit(
-                scope['x_train'], scope['y_train'], verbose=verbose, epochs=self.arguments['epochs'],
+                scope['x_train'], scope['y_train'], verbose=verbose, epochs=total_epochs,
                 batch_size=self.arguments['batch_size'], validation_split=self.arguments['validation_split'],
-                callbacks=callbacks, initial_epoch=scope.get('last_epoch', 0))
+                callbacks=callbacks, initial_epoch=initial_epoch)
 
-        scope['last_epoch'] = scope.get('last_epoch', 0) + len(model.history.history['loss'])
+        current_epoch = scope['last_epoch'] = scope['last_epoch'] + len(model.history.history['loss'])
+        log_quantities = scope.setdefault('log_quantities', [])
+        log_quantities.append((current_epoch, model.history.history))
