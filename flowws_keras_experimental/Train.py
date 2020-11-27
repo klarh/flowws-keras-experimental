@@ -73,7 +73,7 @@ class Train(flowws.Stage):
         else:
             model = scope['model']
 
-        callbacks = scope.get('callbacks', [])
+        callbacks = list(scope.get('callbacks', []))
 
         if 'early_stopping' in self.arguments:
             callbacks.append(keras.callbacks.EarlyStopping(
