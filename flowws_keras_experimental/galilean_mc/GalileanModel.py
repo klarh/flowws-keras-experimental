@@ -239,9 +239,20 @@ class GalileanModel(flowws.Stage):
             help='Fraction of steps to use normal gradient descent on'),
         Arg('reduce_distance_period', None, int, 0,
             help='Patience (in epochs) for a distance reduction method like ReduceLROnPlateau'),
+        Arg('clear', '-c', bool, False,
+            help='If given, remove the usage of a previous GalileanModel')
     ]
 
     def run(self, scope, storage):
+        if self.arguments['clear']:
+            scope.pop('custom_model_class')
+
+            keep = lambda x: (
+                not isinstance(x, (DistanceLogger, ReduceStepSizeOnPlateau)))
+            scope['callbacks'] = list(filter(keep, scope.get('callbacks', [])))
+
+            return
+
         timescale = 32 if self.arguments['tune_distance'] else 0
         ModelFun = functools.partial(
             Model, galilean_steps=self.arguments['steps'],
