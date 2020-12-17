@@ -38,6 +38,10 @@ class Train(flowws.Stage):
             help='If True, make the training data a clean multiple of the batch size'),
         Arg('rebuild_model', '-r', bool, False,
             help='If True, always rebuild the model when one already exists'),
+        Arg('generator_train_steps', None, int, None,
+            help='Number of steps to use as an epoch for training from a generator'),
+        Arg('generator_val_steps', None, int, None,
+            help='Number of steps to use as an epoch for evaluation from a generator'),
     ]
 
     def run(self, scope, storage):
@@ -106,10 +110,30 @@ class Train(flowws.Stage):
 
             initial_epoch = scope.setdefault('last_epoch', 0)
             total_epochs = initial_epoch + self.arguments['epochs']
-            model.fit(
-                scope['x_train'], scope['y_train'], verbose=verbose, epochs=total_epochs,
-                batch_size=self.arguments['batch_size'], validation_split=self.arguments['validation_split'],
-                callbacks=callbacks, initial_epoch=initial_epoch)
+
+            args = []
+            kwargs = dict(
+                verbose=verbose,
+                epochs=total_epochs,
+                callbacks=callbacks,
+                initial_epoch=initial_epoch
+            )
+
+            if 'train_generator' in scope:
+                args.append(scope['train_generator'])
+                kwargs['steps_per_epoch'] = (self.arguments['generator_train_steps'] or
+                                             scope.get('generator_train_steps', None))
+
+                if 'validation_generator' in scope:
+                    kwargs['validation_data'] = scope['validation_generator']
+                    kwargs['validation_steps'] = (self.arguments['generator_val_steps'] or
+                                                  scope.get('generator_val_steps', None))
+            else:
+                args.append(scope['x_train'], scope['y_train'])
+                kwargs['batch_size'] = self.arguments['batch_size']
+                kwargs['validation_split'] = self.arguments['validation_split']
+
+            model.fit(*args, **kwargs)
 
         current_epoch = scope['last_epoch'] = scope['last_epoch'] + len(model.history.history['loss'])
         log_quantities = scope.setdefault('log_quantities', [])
