@@ -12,11 +12,16 @@ class MLP(flowws.Stage):
         Arg('activation', '-a', str, 'relu'),
         Arg('batch_norm', '-b', bool, False,),
         Arg('flatten', '-f', bool, False,),
+        Arg('dropout', '-d', float, 0,
+            help='Apply a dropout layer with the given '
+            'dropout rate after each hidden layer'),
     ]
 
     def run(self, scope, storage):
         input_shape = scope['x_train'][0].shape
         input_symbol = keras.layers.Input(shape=input_shape)
+
+        Dropout = scope.get('dropout_class', keras.layers.Dropout)
 
         layers = []
 
@@ -28,6 +33,8 @@ class MLP(flowws.Stage):
 
         for w in self.arguments['hidden_widths']:
             layers.append(keras.layers.Dense(w, activation=self.arguments['activation']))
+            if self.arguments['dropout']:
+                layers.append(Dropout(self.argument['dropout']))
 
         scope['input_symbol'] = input_symbol
         scope['output'] = sequence(input_symbol, layers)

@@ -19,6 +19,8 @@ class Encoder(flowws.Stage):
         conv_dropout = self.arguments['dropout']
         conv_widths = self.arguments['convolution_widths']
 
+        SpatialDropout2D = scope.get('dropout_spatial2d_class', keras.layers.SpatialDropout2D)
+
         input_symbol = keras.layers.Input(shape=input_shape)
         current_size = input_shape[-2]
 
@@ -36,7 +38,7 @@ class Encoder(flowws.Stage):
             layers.append(keras.layers.AveragePooling2D(pool_size=(2, 2)))
             current_size //= 2
             if conv_dropout:
-                layers.append(keras.layers.SpatialDropout2D(conv_dropout))
+                layers.append(SpatialDropout2D(conv_dropout))
 
         last_size = current_size
         layers.append(keras.layers.Flatten())

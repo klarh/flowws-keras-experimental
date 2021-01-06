@@ -63,6 +63,17 @@ for name in module_names:
     flowws_modules.append(
         'flowws_keras_experimental.{1}.{0} = flowws_keras_experimental.{1}.{0}:{0}'.format(name, subpkg))
 
+subpkg = 'neural_potential'
+module_names = [
+    'NeuralPotentialDropout',
+]
+for name in module_names:
+    if name not in entry_points:
+        flowws_modules.append('{0} = flowws_keras_experimental.{1}.{0}:{0}'.format(name, subpkg))
+        entry_points.add(name)
+    flowws_modules.append(
+        'flowws_keras_experimental.{1}.{0} = flowws_keras_experimental.{1}.{0}:{0}'.format(name, subpkg))
+
 subpkg = 'ring_replicas'
 module_names = [
     'Train',
