@@ -101,7 +101,7 @@ class NeuralPotentialDropout(flowws.Stage):
         if self.arguments['reset']:
             scope.pop('dropout_class', None)
             scope.pop('dropout_spatial2d_class', None)
-        
+
         layer_dropout = functools.partial(LearnedDropout, mu)
         spatial_dropout = functools.partial(
             LearnedSpatialDropout2D, mu, spatial_mask=self.arguments['spatial_mask'])
