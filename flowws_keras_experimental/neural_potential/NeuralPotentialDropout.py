@@ -66,7 +66,7 @@ class LearnedDropout(keras.layers.Layer):
 
     def get_config(self):
         config = super().get_config()
-        config['neural_potential'] = self.neural_potential
+        config['neural_potential'] = float(self.neural_potential)
         config['initial_dropout'] = self.initial_dropout
         config['mask_dims'] = self.mask_dims
         config['batch_dims'] = self.batch_dims
