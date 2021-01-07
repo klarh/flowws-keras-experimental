@@ -34,7 +34,7 @@ class MLP(flowws.Stage):
         for w in self.arguments['hidden_widths']:
             layers.append(keras.layers.Dense(w, activation=self.arguments['activation']))
             if self.arguments['dropout']:
-                layers.append(Dropout(self.argument['dropout']))
+                layers.append(Dropout(self.arguments['dropout']))
 
         scope['input_symbol'] = input_symbol
         scope['output'] = sequence(input_symbol, layers)
