@@ -10,7 +10,10 @@ class MLP(flowws.Stage):
         Arg('hidden_widths', '-w', [int], [32],
            help='Number of nodes for each hidden layer'),
         Arg('activation', '-a', str, 'relu'),
-        Arg('batch_norm', '-b', bool, False,),
+        Arg('batch_norm', '-b', bool, False,
+            help='Apply batch normalization before all hidden layers'),
+        Arg('output_batch_norm', None, bool, False,
+            help='Apply batch normalization after each hidden layer'),
         Arg('flatten', '-f', bool, False,),
         Arg('dropout', '-d', float, 0,
             help='Apply a dropout layer with the given '
@@ -33,6 +36,8 @@ class MLP(flowws.Stage):
 
         for w in self.arguments['hidden_widths']:
             layers.append(keras.layers.Dense(w, activation=self.arguments['activation']))
+            if self.arguments.get('output_batch_norm', False):
+                layers.append(keras.layers.BatchNormalization())
             if self.arguments['dropout']:
                 layers.append(Dropout(self.arguments['dropout']))
 
