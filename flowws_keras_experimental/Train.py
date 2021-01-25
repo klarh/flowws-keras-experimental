@@ -14,11 +14,20 @@ try:
 except ImportError:
     tfa = None
 
+OPTIMIZER_MAP = dict(
+    adadelta='Adadelta',
+    adam='Adam',
+    rmsprop='RMSprop',
+    sgd='SGD',
+)
+
 @flowws.add_stage_arguments
 class Train(flowws.Stage):
     ARGS = [
         Arg('optimizer', '-o', str, 'adam',
            help='optimizer to use'),
+        Arg('optimizer_kwargs', None, [(str, eval)], [],
+            help='Keyword arguments to pass to optimizer'),
         Arg('epochs', '-e', int, 2000,
            help='Max number of epochs'),
         Arg('batch_size', '-b', int, 256,
@@ -70,7 +79,13 @@ class Train(flowws.Stage):
 
             metrics = scope.get('metrics', [])
 
-            model.compile(self.arguments['optimizer'], loss=scope['loss'], metrics=metrics)
+            if self.arguments['optimizer_kwargs']:
+                optimizer_cls = getattr(
+                    keras.optimizers, OPTIMIZER_MAP[self.arguments['optimizer']])
+                optimizer = optimizer_cls(**dict(self.arguments['optimizer_kwargs']))
+            else:
+                optimizer = self.arguments['optimizer']
+            model.compile(optimizer, loss=scope['loss'], metrics=metrics)
 
             if self.arguments['summarize']:
                 model.summary()
