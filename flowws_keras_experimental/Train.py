@@ -150,6 +150,7 @@ class Train(flowws.Stage):
 
             model.fit(*args, **kwargs)
 
-        current_epoch = scope['last_epoch'] = scope['last_epoch'] + len(model.history.history['loss'])
-        log_quantities = scope.setdefault('log_quantities', [])
-        log_quantities.append((current_epoch, model.history.history))
+        if self.arguments['epochs']:
+            current_epoch = scope['last_epoch'] = scope['last_epoch'] + len(model.history.history['loss'])
+            log_quantities = scope.setdefault('log_quantities', [])
+            log_quantities.append((current_epoch, model.history.history))
