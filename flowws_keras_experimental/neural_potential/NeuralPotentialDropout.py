@@ -8,8 +8,15 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import backend as K
 
-def dropout_mask_op_builder(batch_dims=1):
+def dropout_mask_op_builder(batch_dims=1, reduction='sum'):
     g1_mean_axes = tuple(range(batch_dims))
+
+    if reduction == 'sum':
+        gradient_reduce_fun = K.sum
+    elif reduction == 'mean':
+        gradient_reduce_fun = K.mean
+    else:
+        raise NotImplementedError(reduction)
 
     @tf.custom_gradient
     def simple_dropout_mask(weights, x):
@@ -22,7 +29,7 @@ def dropout_mask_op_builder(batch_dims=1):
 
         def grad(dy):
             g1 = dy*x*dmask_dweights
-            g1 = K.mean(g1, axis=g1_mean_axes)
+            g1 = gradient_reduce_fun(g1, axis=g1_mean_axes)
             g2 = dy*mask
             return g1, g2
 
