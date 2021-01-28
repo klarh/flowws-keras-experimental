@@ -79,6 +79,8 @@ class LearnedDropout(keras.layers.Layer):
         config['batch_dims'] = self.batch_dims
         return config
 
+keras.utils.get_custom_objects()['LearnedDropout'] = LearnedDropout
+
 class LearnedSpatialDropout2D(LearnedDropout):
     def __init__(self, *args, spatial_mask=False, **kwargs):
         self.spatial_mask = spatial_mask
@@ -90,6 +92,8 @@ class LearnedSpatialDropout2D(LearnedDropout):
         config = super().get_config()
         config['spatial_mask'] = self.spatial_mask
         return config
+
+keras.utils.get_custom_objects()['LearnedSpatialDropout2D'] = LearnedSpatialDropout2D
 
 @flowws.add_stage_arguments
 class NeuralPotentialDropout(flowws.Stage):
