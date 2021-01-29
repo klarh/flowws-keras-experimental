@@ -1,3 +1,3 @@
 
+from .NeuralPotentialController import NeuralPotentialController
 from .NeuralPotentialDropout import NeuralPotentialDropout
-

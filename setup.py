@@ -65,6 +65,7 @@ for name in module_names:
 
 subpkg = 'neural_potential'
 module_names = [
+    'NeuralPotentialController',
     'NeuralPotentialDropout',
 ]
 for name in module_names:
