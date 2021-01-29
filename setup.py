@@ -67,6 +67,7 @@ subpkg = 'neural_potential'
 module_names = [
     'NeuralPotentialController',
     'NeuralPotentialDropout',
+    'PruneNeuralPotentialLayers',
 ]
 for name in module_names:
     if name not in entry_points:
