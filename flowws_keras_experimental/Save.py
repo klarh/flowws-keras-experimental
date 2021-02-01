@@ -14,6 +14,10 @@ class Save(flowws.Stage):
         Arg('save_model', '-s', bool, False),
         Arg('hash_size', '-c', int, 0,
             help='If given, use a hash of the workflow description for the dump filename'),
+        Arg('group', '-g', str,
+            help='If given, set the GTAR group ID to save with'),
+        Arg('file_modifiers', '-f', [str], [],
+            help='List of additional filename modifiers to use'),
     ]
 
     def run(self, scope, storage):
@@ -38,7 +42,7 @@ class Save(flowws.Stage):
                 varying.append((rec, val))
 
         with contextlib.ExitStack() as st:
-            modifiers = []
+            modifiers = list(self.arguments['file_modifiers'])
             if self.arguments['hash_size']:
                 N = self.arguments['hash_size']
                 mod = hashlib.sha1(json.dumps(
@@ -47,7 +51,8 @@ class Save(flowws.Stage):
 
             storage_handle = st.enter_context(storage.open(
                 scope.get('dump_filename', 'dump.sqlite'), 'a', modifiers, on_filesystem=True))
-            traj = st.enter_context(keras_gtar.Trajectory(storage_handle.name, 'a'))
+            traj = st.enter_context(keras_gtar.Trajectory(
+                storage_handle.name, 'a', group=self.arguments.get('group', None)))
 
             if self.arguments['save_model']:
                 traj.save(scope['model'], str(frame))
