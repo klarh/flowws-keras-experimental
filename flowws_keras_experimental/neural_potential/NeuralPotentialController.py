@@ -81,10 +81,19 @@ class NeuralPotentialController(flowws.Stage):
         Arg('log_history', None, bool, False,
            help='If True, retain a history in-memory'),
         Arg('period', '-p', int, 1,
-           help='Period (in batches) for the controller to run')
+           help='Period (in batches) for the controller to run'),
+        Arg('disable', '-d', bool, 0,
+           help='If given, disable this callback for future Train invocations'),
     ]
 
     def run(self, scope, storage):
+        if self.arguments['disable']:
+            callbacks = scope.setdefault('callbacks', [])
+            new_callbacks = [c for c in callbacks if
+                             not isinstance(c, NeuralPotentialControlCallback)]
+            scope['callbacks'] = new_callbacks
+            return
+
         callback = NeuralPotentialControlCallback(
             self.arguments['k_p'], self.arguments['tau'], self.arguments['setpoint'],
             self.arguments['period'], self.arguments['log_history'])
