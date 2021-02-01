@@ -114,6 +114,8 @@ def prune_conv2d(desc, mask):
 @flowws.add_stage_arguments
 class PruneNeuralPotentialLayers(flowws.Stage):
     ARGS = [
+        Arg('summarize', None, bool, False,
+            help='If True, print the model summary after pruning'),
     ]
 
     def run(self, scope, storage):
@@ -173,6 +175,9 @@ class PruneNeuralPotentialLayers(flowws.Stage):
         weights = sum([desc.weights for desc in final_descriptions], [])
 
         new_model = keras.models.model_from_json(json.dumps(model_json))
+
+        if self.arguments['summarize']:
+            new_model.summary()
 
         new_model.set_weights(weights)
         new_model.compile(optimizer=model.optimizer, loss=scope['loss'], metrics=scope.get('metrics', []))
