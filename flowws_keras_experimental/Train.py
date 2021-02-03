@@ -41,6 +41,8 @@ class Train(flowws.Stage):
         Arg('seed', '-s', int),
         Arg('summarize', None, bool, False,
             help='If True, print the model summary before training'),
+        Arg('recompile', None, bool, False,
+            help='If True, always compile the model in this stage'),
         Arg('verbose', None, bool, True,
             help='If True, print the training progress'),
         Arg('clean_batch_multiple', None, bool, False,
@@ -68,6 +70,17 @@ class Train(flowws.Stage):
             y_train = scope['y_train']
             scope['y_train'] = y_train[:len(y_train)//bs*bs]
 
+        metrics = scope.get('metrics', [])
+
+        if self.arguments['optimizer_kwargs']:
+            optimizer_cls = getattr(
+                keras.optimizers, OPTIMIZER_MAP[self.arguments['optimizer']])
+            optimizer = optimizer_cls(**dict(self.arguments['optimizer_kwargs']))
+        else:
+            optimizer = self.arguments['optimizer']
+
+        should_compile = self.arguments['recompile']
+
         if 'model' not in scope or self.arguments['rebuild_model']:
             ModelCls = scope.get('custom_model_class', keras.models.Model)
             model = ModelCls(scope['input_symbol'], scope['output'])
@@ -77,20 +90,15 @@ class Train(flowws.Stage):
             for term in scope.get('extra_losses', []):
                 model.add_loss(term)
 
-            metrics = scope.get('metrics', [])
-
-            if self.arguments['optimizer_kwargs']:
-                optimizer_cls = getattr(
-                    keras.optimizers, OPTIMIZER_MAP[self.arguments['optimizer']])
-                optimizer = optimizer_cls(**dict(self.arguments['optimizer_kwargs']))
-            else:
-                optimizer = self.arguments['optimizer']
-            model.compile(optimizer, loss=scope['loss'], metrics=metrics)
-
-            if self.arguments['summarize']:
-                model.summary()
+            should_compile = True
         else:
             model = scope['model']
+
+        if self.arguments['summarize']:
+            model.summary()
+
+        if should_compile:
+            model.compile(optimizer, loss=scope['loss'], metrics=metrics)
 
         callbacks = list(scope.get('callbacks', []))
 
@@ -147,6 +155,9 @@ class Train(flowws.Stage):
                 args.extend([scope['x_train'], scope['y_train']])
                 kwargs['batch_size'] = self.arguments['batch_size']
                 kwargs['validation_split'] = self.arguments['validation_split']
+
+                if 'validation_data' in scope:
+                    kwargs['validation_data'] = scope['validation_data']
 
             model.fit(*args, **kwargs)
 
