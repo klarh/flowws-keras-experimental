@@ -81,6 +81,20 @@ class LearnedDropout(keras.layers.Layer):
 
 keras.utils.get_custom_objects()['LearnedDropout'] = LearnedDropout
 
+class LearnedSequenceDropout(LearnedDropout):
+    def __init__(self, *args, spatial_mask=False, **kwargs):
+        self.spatial_mask = spatial_mask
+        kwargs.setdefault('batch_dims', 1 if spatial_mask else 2)
+        kwargs.setdefault('mask_dims', 2 if spatial_mask else 1)
+        super().__init__(*args, **kwargs)
+
+    def get_config(self):
+        config = super().get_config()
+        config['spatial_mask'] = self.spatial_mask
+        return config
+
+keras.utils.get_custom_objects()['LearnedSequenceDropout'] = LearnedSequenceDropout
+
 class LearnedSpatialDropout2D(LearnedDropout):
     def __init__(self, *args, spatial_mask=False, **kwargs):
         self.spatial_mask = spatial_mask
@@ -114,8 +128,11 @@ class NeuralPotentialDropout(flowws.Stage):
             scope.pop('dropout_spatial2d_class', None)
 
         layer_dropout = functools.partial(LearnedDropout, mu)
+        sequence_dropout = functools.partial(
+            LearnedSequenceDropout, mu, spatial_mask=self.arguments['spatial_mask'])
         spatial_dropout = functools.partial(
             LearnedSpatialDropout2D, mu, spatial_mask=self.arguments['spatial_mask'])
 
         scope['dropout_class'] = layer_dropout
+        scope['dropout_sequence_class'] = sequence_dropout
         scope['dropout_spatial2d_class'] = spatial_dropout
