@@ -35,11 +35,12 @@ class NeuralPotentialControlCallback(tf.keras.callbacks.Callback):
         self.log_history = []
 
     def get_current_status(self):
-        probas = [tf.nn.sigmoid(layer.mask_weights) for layer in self.controlled_layers]
+        # use dropout probability, rather than passthrough probability
+        probas = [tf.nn.sigmoid(-layer.mask_weights) for layer in self.controlled_layers]
         mean_probas = [tf.math.reduce_mean(p) for p in probas]
         geometric_mean = tf.pow(tf.math.reduce_prod(mean_probas), 1./len(self.controlled_layers))
 
-        error = geometric_mean - self.setpoint
+        error = self.setpoint - geometric_mean
 
         return CurrentStatus(geometric_mean, error)
 

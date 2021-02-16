@@ -50,7 +50,7 @@ class LearnedDropout(keras.layers.Layer):
         mask_shape = input_shape[-self.mask_dims:]
         assert not any(v is None for v in mask_shape)
 
-        initial_weight = -math.log(1./self.initial_dropout - 1)
+        initial_weight = -math.log(1./(1 - self.initial_dropout) - 1)
 
         self.mask_weights = self.add_weight(
             'mask_weights', mask_shape,
