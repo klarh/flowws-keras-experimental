@@ -87,6 +87,17 @@ for name in module_names:
     flowws_modules.append(
         'flowws_keras_experimental.{1}.{0} = flowws_keras_experimental.{1}.{0}:{0}'.format(name, subpkg))
 
+subpkg = 'text'
+module_names = [
+    'TransformerLM',
+]
+for name in module_names:
+    if name not in entry_points:
+        flowws_modules.append('{0} = flowws_keras_experimental.{1}.{0}:{0}'.format(name, subpkg))
+        entry_points.add(name)
+    flowws_modules.append(
+        'flowws_keras_experimental.{1}.{0} = flowws_keras_experimental.{1}.{0}:{0}'.format(name, subpkg))
+
 setup(name='flowws-keras-experimental',
       author='Matthew Spellings',
       author_email='mspells@vectorinstitute.ai',
@@ -111,6 +122,7 @@ setup(name='flowws-keras-experimental',
           'flowws_keras_experimental.galilean_mc',
           'flowws_keras_experimental.neural_potential',
           'flowws_keras_experimental.ring_replicas',
+          'flowws_keras_experimental.text',
       ],
       python_requires='>=3',
       version=__version__

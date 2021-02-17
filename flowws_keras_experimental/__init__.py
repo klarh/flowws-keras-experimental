@@ -1,6 +1,7 @@
 from flowws import try_to_import
 
 from . import images
+from . import text
 
 from .Classifier import Classifier
 from .InitializeTF import InitializeTF
