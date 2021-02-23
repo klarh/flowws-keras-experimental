@@ -32,6 +32,7 @@ module_names = [
     'CIFAR10',
     'CIFAR100',
     'Encoder',
+    'ImagenetDirectory',
     'MNIST',
 ]
 for name in module_names:
