@@ -12,6 +12,8 @@ class Encoder(flowws.Stage):
            help='Number of channels to build for each convolution layer'),
         Arg('dropout', '-d', float, .125,
            help='Dropout frequency for encoder'),
+        Arg('final_pool', '-p', str,
+            help='Type of final pooling to apply for encoding, if any: one of "max", "avg"'),
     ]
 
     def run(self, scope, storage):
@@ -44,6 +46,19 @@ class Encoder(flowws.Stage):
                 layers.append(SpatialDropout2D(conv_dropout))
 
         last_size = current_size
+
+        final_pool = self.arguments.get('final_pool', None)
+        if final_pool == 'avg':
+            layers.append(keras.layers.AveragePooling2D(
+                pool_size=(current_size, current_size)))
+            current_size = 1
+        elif final_pool == 'max':
+            layers.append(keras.layers.MaxPooling2D(
+                pool_size=(current_size, current_size)))
+            current_size = 1
+        elif final_pool:
+            raise NotImplementedError(final_pool)
+
         layers.append(keras.layers.Flatten())
         current_size = current_size**2*conv_widths[-1]
 
