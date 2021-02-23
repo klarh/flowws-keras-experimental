@@ -146,6 +146,7 @@ class Train(flowws.Stage):
                 args.append(scope['train_generator'])
                 kwargs['steps_per_epoch'] = (self.arguments.get('generator_train_steps', None) or
                                              scope.get('generator_train_steps', None))
+                kwargs['use_multiprocessing'] = True
 
                 if 'validation_generator' in scope:
                     kwargs['validation_data'] = scope['validation_generator']
