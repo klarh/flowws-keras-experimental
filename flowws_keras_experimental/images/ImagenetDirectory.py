@@ -16,6 +16,12 @@ def augmentation(f):
     return f
 
 @augmentation
+def null(img):
+    return img
+
+AUGMENTATIONS['id'] = null
+
+@augmentation
 def scale(img, low=256, high=480):
     (w, h) = img.size
     new_size = random.randint(low, high)
@@ -92,8 +98,8 @@ class ImagenetDirectory(flowws.Stage):
             help='Base directory storing images'),
         Arg('validation_fraction', '-v', float, .3,
             help='Fraction of files to be used in validation set'),
-        Arg('augmentations', '-a', [str], ['scale', 'crop', 'maybe_flip', 'keras_preprocess'],
-            help='Names of augmentations to perform on each image'),
+        Arg('augmentations', '-a', [str],
+            help='Names of augmentations to perform on each image (use "null" for none)'),
         Arg('batch_size', None, int, 32,
             help='Batch size for training and validation'),
     ]
@@ -110,7 +116,9 @@ class ImagenetDirectory(flowws.Stage):
 
         test_files, _ = split_filenames(test_dir, label_names, -1)
 
-        augmentations = [AUGMENTATIONS[name] for name in self.arguments['augmentations']]
+        augmentation_names = (self.arguments['augmentations'] or
+                              ['scale', 'crop', 'maybe_flip', 'keras_preprocess'])
+        augmentations = [AUGMENTATIONS[name] for name in augmentation_names]
 
         train_generator = batch_generator(
             train_dir, train_files, label_map, self.arguments['batch_size'], augmentations)
