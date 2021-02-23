@@ -15,7 +15,10 @@ class Encoder(flowws.Stage):
     ]
 
     def run(self, scope, storage):
-        input_shape = scope['x_train'][0].shape
+        try:
+            input_shape = scope['x_train'][0].shape
+        except KeyError:
+            input_shape = next(scope['train_generator'])[0][0].shape
         conv_dropout = self.arguments['dropout']
         conv_widths = self.arguments['convolution_widths']
 
