@@ -102,6 +102,12 @@ class ImagenetDirectory(flowws.Stage):
             help='Names of augmentations to perform on each image (use "null" for none)'),
         Arg('batch_size', None, int, 32,
             help='Batch size for training and validation'),
+        Arg('train_epoch_scaling', None, float, 1.,
+            help='Factor to scale the number of batches considered to be part of an epoch by (train set)'),
+        Arg('val_epoch_scaling', None, float, 1.,
+            help='Factor to scale the number of batches considered to be part of an epoch by (validation set)'),
+        Arg('test_epoch_scaling', None, float, 1.,
+            help='Factor to scale the number of batches considered to be part of an epoch by (test set)'),
     ]
 
     def run(self, scope, storage):
@@ -127,9 +133,12 @@ class ImagenetDirectory(flowws.Stage):
         test_generator = batch_generator(
             test_dir, test_files, label_map, self.arguments['batch_size'], augmentations)
 
-        steps_per_epoch = len(train_files)//self.arguments['batch_size']
-        validation_steps = len(val_files)//self.arguments['batch_size']
-        test_steps = len(test_files)//self.arguments['batch_size']
+        steps_per_epoch = int(len(train_files)//self.arguments['batch_size']*
+                              self.arguments['train_epoch_scaling'])
+        validation_steps = (len(val_files)//self.arguments['batch_size']*
+                            self.arguments['val_epoch_scaling'])
+        test_steps = (len(test_files)//self.arguments['batch_size']*
+                      self.arguments['test_epoch_scaling'])
 
         scope['label_names'] = label_names
         scope['label_map'] = label_map
