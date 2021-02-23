@@ -14,6 +14,8 @@ class Encoder(flowws.Stage):
            help='Dropout frequency for encoder'),
         Arg('final_pool', '-p', str,
             help='Type of final pooling to apply for encoding, if any: one of "max", "avg"'),
+        Arg('separable_convolutions', '-s', bool, False,
+            help='If True, use separable convolutions'),
     ]
 
     def run(self, scope, storage):
@@ -23,6 +25,8 @@ class Encoder(flowws.Stage):
             input_shape = next(scope['train_generator'])[0][0].shape
         conv_dropout = self.arguments['dropout']
         conv_widths = self.arguments['convolution_widths']
+        ConvLayer = (keras.layers.SeparableConv2D if self.arguments['separable_convolutions']
+                     else keras.layers.Conv2D)
 
         SpatialDropout2D = scope.get('dropout_spatial2d_class', keras.layers.SpatialDropout2D)
 
@@ -37,7 +41,7 @@ class Encoder(flowws.Stage):
         layers.append(keras.layers.BatchNormalization(input_shape=input_shape))
         layers.append(keras.layers.ZeroPadding2D((pad_radius, pad_radius)))
         for w in conv_widths:
-            layers.append(keras.layers.Conv2D(
+            layers.append(ConvLayer(
                 w, kernel_size=3, activation='relu', padding='same'))
             layers.append(keras.layers.BatchNormalization())
             layers.append(keras.layers.AveragePooling2D(pool_size=(2, 2)))
