@@ -37,14 +37,17 @@ class NeuralPotentialControlCallback(tf.keras.callbacks.Callback):
         self.batch_count = -1
 
     def get_current_status(self):
-        # use dropout probability, rather than passthrough probability
-        probas = [tf.nn.sigmoid(-layer.mask_weights) for layer in self.controlled_layers]
+        # use passthrough probability here: we want values close to 0 to be strongly represented
+        probas = [tf.nn.sigmoid(layer.mask_weights) for layer in self.controlled_layers]
         mean_probas = [tf.math.reduce_mean(p) for p in probas]
+        # geometric mean of passthrough probabilities
         geometric_mean = tf.pow(tf.math.reduce_prod(mean_probas), 1./len(self.controlled_layers))
+        # convert to dropout probability for final use
+        dropout_mean = 1 - geometric_mean
 
-        error = self.setpoint - geometric_mean
+        error = self.setpoint - dropout_mean
 
-        return CurrentStatus(geometric_mean, error)
+        return CurrentStatus(dropout_mean, error)
 
     def on_batch_end(self, batch, logs=None):
         self.batch_count += 1
