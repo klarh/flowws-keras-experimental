@@ -16,6 +16,7 @@ class NeuralPotentialControlCallback(tf.keras.callbacks.Callback):
         self.setpoint = setpoint
         self.period = period
         self.log = log
+        self.batch_count = None
 
         self.controlled_layers = []
         self.initial_value = None
@@ -33,6 +34,7 @@ class NeuralPotentialControlCallback(tf.keras.callbacks.Callback):
         self.initial_value = float(controlled_layers[0].neural_potential)
         self.integrated_error.assign(0.)
         self.log_history = []
+        self.batch_count = -1
 
     def get_current_status(self):
         # use dropout probability, rather than passthrough probability
@@ -45,7 +47,8 @@ class NeuralPotentialControlCallback(tf.keras.callbacks.Callback):
         return CurrentStatus(geometric_mean, error)
 
     def on_batch_end(self, batch, logs=None):
-        if batch%self.period:
+        self.batch_count += 1
+        if self.batch_count%self.period:
             return
 
         status = self.get_current_status()
