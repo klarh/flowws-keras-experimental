@@ -53,6 +53,8 @@ class Train(flowws.Stage):
             help='Number of steps to use as an epoch for training from a generator'),
         Arg('generator_val_steps', None, int, None,
             help='Number of steps to use as an epoch for evaluation from a generator'),
+        Arg('disable_tqdm', None, bool, False,
+            help='If True, don\'t use tqdm to display a progress bar'),
     ]
 
     def run(self, scope, storage):
@@ -111,7 +113,7 @@ class Train(flowws.Stage):
                 patience=self.arguments['reduce_lr'], monitor='val_loss', factor=.5, verbose=True))
 
         verbose = self.arguments['verbose']
-        if tfa is not None and verbose:
+        if tfa is not None and verbose and not self.arguments['disable_tqdm']:
             callbacks.append(tfa.callbacks.TQDMProgressBar(
                 show_epoch_progress=False, update_per_second=1))
             verbose = False
