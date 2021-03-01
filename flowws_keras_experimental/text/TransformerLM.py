@@ -82,7 +82,9 @@ class TransformerLM(flowws.Stage):
         Arg('reuse_dropout_object', None, bool, False,
            help='Use the same Dropout object between blocks'),
         Arg('dropout', None, float, .5,
-           help='Dropout rate to use when enabled')
+            help='Dropout rate to use when enabled'),
+        Arg('sequence_dropout', None, bool, False,
+            help='If True, use sequence-element dropout by default'),
     ]
 
     def run(self, scope, storage):
@@ -92,7 +94,9 @@ class TransformerLM(flowws.Stage):
         ff_dim = self.arguments.get('feedforward_dimensions', dimensions)
         head_dimensions = dimensions//self.arguments['num_heads']
         dropout_rate = self.arguments['dropout']
-        dropout_cls = scope.get('dropout_sequence_class', keras.layers.SpatialDropout1D)
+        default_dropout = (keras.layers.SpatialDropout1D if
+                           self.arguments['sequence_dropout'] else keras.layers.Dropout)
+        dropout_cls = scope.get('dropout_sequence_class', default_dropout)
 
         if self.arguments['reuse_dropout_object']:
             dropout_ob = dropout_cls(dropout_rate)
