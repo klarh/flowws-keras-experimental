@@ -90,6 +90,7 @@ for name in module_names:
 
 subpkg = 'text'
 module_names = [
+    'LSTMLM',
     'TransformerLM',
 ]
 for name in module_names:
