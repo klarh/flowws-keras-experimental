@@ -34,6 +34,7 @@ module_names = [
     'Encoder',
     'ImagenetDirectory',
     'MNIST',
+    'ResNet',
 ]
 for name in module_names:
     if name not in entry_points:
