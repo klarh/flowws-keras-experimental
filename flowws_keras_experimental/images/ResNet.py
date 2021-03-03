@@ -8,14 +8,14 @@ from tensorflow.keras.applications import resnet
 def default_clone(layer):
     return layer.__class__.from_config(layer.get_config())
 
-def clonefun(layer, Dropout):
+def clonefun(layer, Dropout, rate):
     result = default_clone(layer)
 
     if (isinstance(layer, keras.layers.Activation) and
         layer.get_config()['activation'] == 'relu'):
 
         name = result.name + '_plus_dropout'
-        return keras.Sequential([result, Dropout(.5)], name=name)
+        return keras.Sequential([result, Dropout(rate)], name=name)
     return result
 
 @flowws.add_stage_arguments
@@ -39,7 +39,8 @@ class ResNet(flowws.Stage):
         model = ResNet(classes=num_classes, weights=None, input_shape=input_shape)
 
         if self.arguments['dropout']:
-            clonefun_ = functools.partial(clonefun, Dropout=Dropout)
+            clonefun_ = functools.partial(
+                clonefun, Dropout=Dropout, rate=self.arguments['dropout'])
             model = keras.models.clone_model(model, clone_function=clonefun_)
 
         scope['model'] = model
