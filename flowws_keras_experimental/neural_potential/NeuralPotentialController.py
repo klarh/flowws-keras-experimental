@@ -23,11 +23,16 @@ class NeuralPotentialControlCallback(tf.keras.callbacks.Callback):
         self.integrated_error = tf.Variable(0, dtype=tf.float32, trainable=False)
         self.log_history = []
 
-    def on_train_begin(self, logs=None):
-        controlled_layers = []
-        for layer in self.model.layers:
+    @staticmethod
+    def find_controllable_layers(model):
+        for layer in model.layers:
             if isinstance(layer, LearnedDropout):
-                controlled_layers.append(layer)
+                yield layer
+            elif isinstance(layer, tf.keras.Model):
+                yield from NeuralPotentialControlCallback.find_controllable_layers(layer)
+
+    def on_train_begin(self, logs=None):
+        controlled_layers = list(self.find_controllable_layers(self.model))
         if not controlled_layers:
             raise ValueError('Trying to control a network without any neural potential dropout layers')
         self.controlled_layers = controlled_layers
