@@ -34,6 +34,7 @@ module_names = [
     'Encoder',
     'ImagenetDirectory',
     'MNIST',
+    'MobileNetV2',
     'ResNet',
 ]
 for name in module_names:
