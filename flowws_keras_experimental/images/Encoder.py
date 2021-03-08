@@ -16,6 +16,8 @@ class Encoder(flowws.Stage):
             help='Type of final pooling to apply for encoding, if any: one of "max", "avg"'),
         Arg('separable_convolutions', '-s', bool, False,
             help='If True, use separable convolutions'),
+        Arg('normalize_before_activation', '-n', bool, False,
+            help='If True, place batch normalization before the post-conv activation'),
     ]
 
     def run(self, scope, storage):
@@ -41,9 +43,12 @@ class Encoder(flowws.Stage):
         layers.append(keras.layers.BatchNormalization(input_shape=input_shape))
         layers.append(keras.layers.ZeroPadding2D((pad_radius, pad_radius)))
         for w in conv_widths:
+            activation = None if self.arguments['normalize_before_activation'] else 'relu'
             layers.append(ConvLayer(
-                w, kernel_size=3, activation='relu', padding='same'))
+                w, kernel_size=3, activation=activation, padding='same'))
             layers.append(keras.layers.BatchNormalization())
+            if self.arguments['normalize_before_activation']:
+                layers.append(keras.layers.Activation('relu'))
             layers.append(keras.layers.AveragePooling2D(pool_size=(2, 2)))
             current_size //= 2
             if conv_dropout:
