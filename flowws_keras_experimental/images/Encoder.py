@@ -53,12 +53,10 @@ class Encoder(flowws.Stage):
 
         final_pool = self.arguments.get('final_pool', None)
         if final_pool == 'avg':
-            layers.append(keras.layers.AveragePooling2D(
-                pool_size=(current_size, current_size)))
+            layers.append(keras.layers.GlobalAveragePooling2D())
             current_size = 1
         elif final_pool == 'max':
-            layers.append(keras.layers.MaxPooling2D(
-                pool_size=(current_size, current_size)))
+            layers.append(keras.layers.GlobalMaxPooling2D())
             current_size = 1
         elif final_pool:
             raise NotImplementedError(final_pool)
