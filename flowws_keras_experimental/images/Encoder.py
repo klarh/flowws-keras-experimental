@@ -18,6 +18,8 @@ class Encoder(flowws.Stage):
             help='If True, use separable convolutions'),
         Arg('normalize_before_activation', '-n', bool, False,
             help='If True, place batch normalization before the post-conv activation'),
+        Arg('encoding_dropout', None, float, 0,
+            help='Dropout rate for final encoding output, if any'),
     ]
 
     def run(self, scope, storage):
@@ -30,6 +32,7 @@ class Encoder(flowws.Stage):
         ConvLayer = (keras.layers.SeparableConv2D if self.arguments['separable_convolutions']
                      else keras.layers.Conv2D)
 
+        Dropout = scope.get('dropout_class', keras.layers.Dropout)
         SpatialDropout2D = scope.get('dropout_spatial2d_class', keras.layers.SpatialDropout2D)
 
         input_symbol = keras.layers.Input(shape=input_shape)
@@ -68,6 +71,9 @@ class Encoder(flowws.Stage):
 
         layers.append(keras.layers.Flatten())
         current_size = current_size**2*conv_widths[-1]
+
+        if self.arguments['encoding_dropout']:
+            layers.append(Dropout(self.arguments['encoding_dropout']))
 
         encoded = sequence(input_symbol, layers)
 
