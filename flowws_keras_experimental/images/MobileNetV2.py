@@ -11,12 +11,12 @@ def default_clone(layer):
 def clonefun(layer, Dropout, rate):
     result = default_clone(layer)
 
-    right_class = isinstance(layer, keras.layers.Conv2D)
-    right_name = layer.name.endswith('_expand')
+    right_class = isinstance(layer, keras.layers.ReLU)
+    right_name = layer.name.endswith('_expand_relu')
 
-    if (right_class and right_name) or layer.name == 'Conv_1':
+    if (right_class and right_name) or layer.name == 'out_relu':
         name = result.name + '_plus_dropout'
-        return keras.Sequential([Dropout(rate), result], name=name)
+        return keras.Sequential([result, Dropout(rate)], name=name)
     return result
 
 @flowws.add_stage_arguments
