@@ -12,6 +12,9 @@ from .NeuralPotentialDropout import LearnedDropout
 
 LayerDescription = namedtuple('LayerDescription', ['source', 'json', 'weights'])
 
+def identity(x):
+    return x
+
 def find_learnable_dropout_layers(model):
     for layer in model.layers:
         if isinstance(layer, keras.models.Model):
@@ -269,7 +272,7 @@ class PruneNeuralPotentialLayers(flowws.Stage):
 
             if layer in to_skip:
                 name = 'nullified_learnable_dropout_{}'.format(nullified_indices[layer])
-                result = keras.layers.Lambda(tf.identity, name=name)
+                result = keras.layers.Lambda(identity, name=name)
             if layer in new_descriptions:
                 desc = new_descriptions[layer]
                 result = layer.__class__.from_config(desc.json)
