@@ -35,6 +35,8 @@ class Train(flowws.Stage):
         Arg('validation_split', '-v', float, .3),
         Arg('early_stopping', type=int),
         Arg('reduce_lr', type=int),
+        Arg('reduce_lr_factor', None, float, .5,
+            help='Factor to scale learning rate with reduce_lr enabled'),
         Arg('dump_period', '-d', int),
         Arg('hash_size', '-c', int, 0,
             help='If given, use a hash of the workflow description for the dump filename'),
@@ -110,7 +112,8 @@ class Train(flowws.Stage):
 
         if 'reduce_lr' in self.arguments:
             callbacks.append(keras.callbacks.ReduceLROnPlateau(
-                patience=self.arguments['reduce_lr'], monitor='val_loss', factor=.5, verbose=True))
+                patience=self.arguments['reduce_lr'], monitor='val_loss',
+                factor=self.arguments['reduce_lr_factor'], verbose=True))
 
         verbose = self.arguments['verbose']
         if tfa is not None and verbose and not self.arguments['disable_tqdm']:
