@@ -57,6 +57,8 @@ class Train(flowws.Stage):
             help='Number of steps to use as an epoch for evaluation from a generator'),
         Arg('disable_tqdm', None, bool, False,
             help='If True, don\'t use tqdm to display a progress bar'),
+        Arg('use_multiprocessing', None, bool, True,
+            help='If True, use multiprocessing with generators'),
     ]
 
     def run(self, scope, storage):
@@ -151,7 +153,7 @@ class Train(flowws.Stage):
                 args.append(scope['train_generator'])
                 kwargs['steps_per_epoch'] = (self.arguments.get('generator_train_steps', None) or
                                              scope.get('generator_train_steps', None))
-                kwargs['use_multiprocessing'] = True
+                kwargs['use_multiprocessing'] = self.arguments['use_multiprocessing']
 
                 if 'validation_generator' in scope:
                     kwargs['validation_data'] = scope['validation_generator']
