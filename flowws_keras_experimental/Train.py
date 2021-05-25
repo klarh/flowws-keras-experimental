@@ -34,6 +34,8 @@ class Train(flowws.Stage):
            help='Batch size'),
         Arg('validation_split', '-v', float, .3),
         Arg('early_stopping', type=int),
+        Arg('early_stopping_best', None, type=bool,
+            help='If True, restore the best weights at the end of early stopping'),
         Arg('reduce_lr', type=int),
         Arg('reduce_lr_factor', None, float, .5,
             help='Factor to scale learning rate with reduce_lr enabled'),
@@ -110,7 +112,8 @@ class Train(flowws.Stage):
 
         if 'early_stopping' in self.arguments:
             callbacks.append(keras.callbacks.EarlyStopping(
-                patience=self.arguments['early_stopping'], monitor='val_loss'))
+                patience=self.arguments['early_stopping'], monitor='val_loss',
+                restore_best_weights=self.arguments.get('early_stopping_best', False)))
 
         if 'reduce_lr' in self.arguments:
             callbacks.append(keras.callbacks.ReduceLROnPlateau(
