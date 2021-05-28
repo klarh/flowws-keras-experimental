@@ -6,6 +6,8 @@ from .internal import sequence
 
 @flowws.add_stage_arguments
 class Classifier(flowws.Stage):
+    """Specify a simple classifier output."""
+
     ARGS = [
         Arg('activation', default='softmax')
     ]

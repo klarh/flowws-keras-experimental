@@ -5,6 +5,8 @@ from tensorflow import keras
 
 @flowws.add_stage_arguments
 class CIFAR100(flowws.Stage):
+    """Use the CIFAR100 dataset from keras."""
+
     ARGS = [
         Arg('coarse_labels', '-c', bool, False,
             help='If True, use 20 coarse-grained labels instead of 100 fine-grained labels'),

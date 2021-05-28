@@ -10,6 +10,8 @@ import numpy as np
 
 @flowws.add_stage_arguments
 class Save(flowws.Stage):
+    """Save the architecture and weights of a model using keras_gtar."""
+
     ARGS = [
         Arg('save_model', '-s', bool, False),
         Arg('hash_size', '-c', int, 0,

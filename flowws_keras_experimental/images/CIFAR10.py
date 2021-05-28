@@ -3,6 +3,8 @@ import numpy as np
 from tensorflow import keras
 
 class CIFAR10(flowws.Stage):
+    """Use the CIFAR10 dataset from keras."""
+
     def run(self, scope, storage):
         (x_train, y_train), (x_test, y_test) = keras.datasets.cifar10.load_data()
 

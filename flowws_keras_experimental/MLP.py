@@ -6,6 +6,8 @@ from .internal import sequence
 
 @flowws.add_stage_arguments
 class MLP(flowws.Stage):
+    """Specify a multilayer perceptron model."""
+
     ARGS = [
         Arg('hidden_widths', '-w', [int], [32],
            help='Number of nodes for each hidden layer'),

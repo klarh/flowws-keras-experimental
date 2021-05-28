@@ -21,6 +21,8 @@ def clonefun(layer, Dropout, rate):
 
 @flowws.add_stage_arguments
 class MobileNetV2(flowws.Stage):
+    """Use the MobileNetV2 architecture as provided by keras."""
+
     ARGS = [
         Arg('dropout', '-d', float, 0,
             help='Dropout probability to use (if any)'),

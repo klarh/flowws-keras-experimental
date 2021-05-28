@@ -4,6 +4,8 @@ import tensorflow as tf
 
 @flowws.add_stage_arguments
 class InitializeTF(flowws.Stage):
+    """Initialize tensorflow, enabling memory growth for GPUs."""
+
     ARGS = [
         Arg('jit', '-j', bool, True,
             help='If True, enable JIT compilation'),

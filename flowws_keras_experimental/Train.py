@@ -23,6 +23,12 @@ OPTIMIZER_MAP = dict(
 
 @flowws.add_stage_arguments
 class Train(flowws.Stage):
+    """Build a model and perform some number of training steps.
+
+    Training will proceed for the model and dataset that have been
+    specified in previous stages.
+
+    """
     ARGS = [
         Arg('optimizer', '-o', str, 'adam',
            help='optimizer to use'),

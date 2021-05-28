@@ -20,6 +20,8 @@ def clonefun(layer, Dropout, rate):
 
 @flowws.add_stage_arguments
 class ResNet(flowws.Stage):
+    """Use the ResNet architecture as provided by keras."""
+
     ARGS = [
         Arg('size', '-s', int, 50,
             help='Size of the ResNet to build (i.e. 50, 101, etc)'),

@@ -93,6 +93,8 @@ def batch_generator(directory_base, labeled_files, label_map, batch_size=32,
 
 @flowws.add_stage_arguments
 class ImagenetDirectory(flowws.Stage):
+    """Load ImageNet images from a specified directory."""
+
     ARGS = [
         Arg('base', '-b', str,
             help='Base directory storing images'),

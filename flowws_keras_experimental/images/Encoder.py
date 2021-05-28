@@ -7,6 +7,8 @@ from ..internal import sequence
 
 @flowws.add_stage_arguments
 class Encoder(flowws.Stage):
+    """Specify simple CNN-based encoder layers for image-type data."""
+
     ARGS = [
         Arg('convolution_widths', '-c', [int],
            help='Number of channels to build for each convolution layer'),

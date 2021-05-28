@@ -3,6 +3,8 @@ from tensorflow import keras
 from tensorflow.keras import backend as K
 
 class MNIST(flowws.Stage):
+    """Use the MNIST dataset from keras."""
+
     def run(self, scope, storage):
         num_classes = 10
 

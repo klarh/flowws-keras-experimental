@@ -4,6 +4,8 @@ from tensorflow.keras import callbacks
 
 @flowws.add_stage_arguments
 class Tensorboard(flowws.Stage):
+    """Specify a tensorboard dump callback."""
+
     ARGS = [
         Arg('histogram_period', None, int, 0,
             help='Frequency to dump histogram data'),
