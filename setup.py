@@ -9,6 +9,10 @@ version_fname = os.path.join(THIS_DIR, 'flowws_keras_experimental', 'version.py'
 with open(version_fname) as version_file:
     exec(version_file.read())
 
+readme_fname = os.path.join(THIS_DIR, 'README.md')
+with open(readme_fname) as readme_file:
+    long_description = readme_file.read()
+
 entry_points = set()
 flowws_modules = []
 
@@ -119,6 +123,8 @@ setup(name='flowws-keras-experimental',
           'flowws',
       ],
       license='MIT',
+      long_description=long_description,
+      long_description_content_type='text/markdown',
       packages=[
           'flowws_keras_experimental',
           'flowws_keras_experimental.images',
