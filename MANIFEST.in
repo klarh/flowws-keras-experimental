@@ -1,0 +1,3 @@
+include setup.py LICENSE README.md changelog.md
+recursive-include doc Makefile make.bat *.py *.rst
+recursive-include flowws_keras_experimental *.py
