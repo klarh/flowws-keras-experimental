@@ -9,12 +9,17 @@ class InitializeTF(flowws.Stage):
     ARGS = [
         Arg('jit', '-j', bool, True,
             help='If True, enable JIT compilation'),
+        Arg('gpu', '-g', bool, True,
+            help='If False, disable GPUs'),
         Arg('memory_growth', '-m', bool, True,
             help='If True, enable gradual memory growth'),
     ]
 
     def run(self, scope, storage):
         tf.config.optimizer.set_jit(self.arguments['jit'])
+
+        if not self.arguments['gpu']:
+            tf.config.set_visible_devices([], 'GPU')
 
         gpus = tf.config.experimental.list_physical_devices('GPU')
         if gpus:
