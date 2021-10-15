@@ -67,6 +67,10 @@ class Train(flowws.Stage):
             help='If True, don\'t use tqdm to display a progress bar'),
         Arg('use_multiprocessing', None, bool, True,
             help='If True, use multiprocessing with generators'),
+        Arg('accumulate_gradients', None, int,
+            help='Number of batches over which to accumulate gradients before applying'),
+        Arg('catch_keyboard_interrupt', None, bool, False,
+            help='If True, catch keyboard interrupts and continue to the next stage'),
     ]
 
     def run(self, scope, storage):
@@ -94,6 +98,7 @@ class Train(flowws.Stage):
             optimizer = self.arguments['optimizer']
 
         should_compile = self.arguments['recompile']
+        should_compile |= 'accumulate_gradients' in self.arguments
 
         if 'model' not in scope or self.arguments['rebuild_model']:
             ModelCls = scope.get('custom_model_class', keras.models.Model)
@@ -112,6 +117,13 @@ class Train(flowws.Stage):
             model.summary()
 
         if should_compile:
+            if isinstance(optimizer, str):
+                optimizer = keras.optimizers.get(optimizer)
+
+            if 'accumulate_gradients' in self.arguments:
+                from .accumulate_gradients import convert
+                convert(optimizer, self.arguments['accumulate_gradients'])
+
             model.compile(optimizer, loss=scope['loss'], metrics=metrics)
 
         callbacks = list(scope.get('callbacks', []))
@@ -176,7 +188,13 @@ class Train(flowws.Stage):
                 if 'validation_data' in scope:
                     kwargs['validation_data'] = scope['validation_data']
 
-            model.fit(*args, **kwargs)
+            if self.arguments['catch_keyboard_interrupt']:
+                try:
+                    model.fit(*args, **kwargs)
+                except KeyboardInterrupt:
+                    print('KeyboardInterrupt caught, continuing the stage')
+            else:
+                    model.fit(*args, **kwargs)
 
         if self.arguments['epochs']:
             current_epoch = scope['last_epoch'] = scope['last_epoch'] + len(model.history.history['loss'])
