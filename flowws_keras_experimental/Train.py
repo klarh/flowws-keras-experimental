@@ -71,6 +71,8 @@ class Train(flowws.Stage):
             help='Number of batches over which to accumulate gradients before applying'),
         Arg('catch_keyboard_interrupt', None, bool, False,
             help='If True, catch keyboard interrupts and continue to the next stage'),
+        Arg('monitor_quantity', None, str, 'val_loss',
+            help='Quantity to monitor for reduce_lr and early_stopping'),
     ]
 
     def run(self, scope, storage):
@@ -130,12 +132,14 @@ class Train(flowws.Stage):
 
         if 'early_stopping' in self.arguments:
             callbacks.append(keras.callbacks.EarlyStopping(
-                patience=self.arguments['early_stopping'], monitor='val_loss',
+                patience=self.arguments['early_stopping'],
+                monitor=self.arguments['monitor_quantity'],
                 restore_best_weights=self.arguments.get('early_stopping_best', False)))
 
         if 'reduce_lr' in self.arguments:
             callbacks.append(keras.callbacks.ReduceLROnPlateau(
-                patience=self.arguments['reduce_lr'], monitor='val_loss',
+                patience=self.arguments['reduce_lr'],
+                monitor=self.arguments['monitor_quantity'],
                 factor=self.arguments['reduce_lr_factor'], verbose=True))
 
         verbose = self.arguments['verbose']
