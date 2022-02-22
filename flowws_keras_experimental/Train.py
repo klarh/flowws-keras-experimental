@@ -140,7 +140,8 @@ class Train(flowws.Stage):
             callbacks.append(keras.callbacks.ReduceLROnPlateau(
                 patience=self.arguments['reduce_lr'],
                 monitor=self.arguments['monitor_quantity'],
-                factor=self.arguments['reduce_lr_factor'], verbose=True))
+                factor=self.arguments['reduce_lr_factor'],
+                verbose=True, min_delta=0))
 
         verbose = self.arguments['verbose']
         if tfa is not None and verbose and not self.arguments['disable_tqdm']:
