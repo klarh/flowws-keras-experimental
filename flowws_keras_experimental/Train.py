@@ -21,6 +21,12 @@ OPTIMIZER_MAP = dict(
     sgd='SGD',
 )
 
+def generator_label_shuffler(seed, gen):
+    rng = np.random.default_rng(seed)
+    for batch in gen:
+        rng.shuffle(batch[-1])
+        yield batch
+
 @flowws.add_stage_arguments
 class Train(flowws.Stage):
     """Build a model and perform some number of training steps.
@@ -73,6 +79,8 @@ class Train(flowws.Stage):
             help='If True, catch keyboard interrupts and continue to the next stage'),
         Arg('monitor_quantity', None, str, 'val_loss',
             help='Quantity to monitor for reduce_lr and early_stopping'),
+        Arg('shuffle_labels', None, bool, False,
+            help='If True, shuffle labels for training'),
     ]
 
     def run(self, scope, storage):
@@ -176,17 +184,29 @@ class Train(flowws.Stage):
             )
 
             if 'train_generator' in scope:
-                args.append(scope['train_generator'])
+                train_gen = scope['train_generator']
+                if self.arguments['shuffle_labels']:
+                    train_gen = generator_label_shuffler(
+                        self.arguments.get('seed', 13), train_gen)
+                args.append(train_gen)
                 kwargs['steps_per_epoch'] = (self.arguments.get('generator_train_steps', None) or
                                              scope.get('generator_train_steps', None))
                 kwargs['use_multiprocessing'] = self.arguments['use_multiprocessing']
 
                 if 'validation_generator' in scope:
-                    kwargs['validation_data'] = scope['validation_generator']
+                    val_gen = scope['validation_generator']
+                    if self.arguments['shuffle_labels']:
+                        val_gen = generator_label_shuffler(
+                            self.arguments.get('seed', 13), val_gen)
+                    kwargs['validation_data'] = val_gen
                     kwargs['validation_steps'] = (self.arguments.get('generator_val_steps', None) or
                                                   scope.get('generator_val_steps', None))
             else:
-                args.extend([scope['x_train'], scope['y_train']])
+                labels = scope['y_train']
+                if self.arguments['shuffle_labels']:
+                    labels = labels.copy()
+                    np.random.shuffle(labels)
+                args.extend([scope['x_train'], labels])
                 kwargs['batch_size'] = self.arguments['batch_size']
                 kwargs['validation_split'] = self.arguments['validation_split']
 
