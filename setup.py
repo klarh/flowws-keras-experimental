@@ -20,6 +20,7 @@ module_names = [
     'Classifier',
     'InitializeTF',
     'MLP',
+    'PermanentDropout',
     'Save',
     'Tensorboard',
     'Train',

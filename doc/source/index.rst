@@ -16,6 +16,8 @@ Base Modules
 
 .. autoclass:: MLP
 
+.. autoclass:: PermanentDropout
+
 .. autoclass:: Tensorboard
 
 .. autoclass:: Train
