@@ -134,7 +134,9 @@ class Train(flowws.Stage):
                 from .accumulate_gradients import convert
                 convert(optimizer, self.arguments['accumulate_gradients'])
 
-            model.compile(optimizer, loss=scope['loss'], metrics=metrics)
+            compile_kwargs = scope.get('compile_kwargs', {})
+
+            model.compile(optimizer, loss=scope['loss'], metrics=metrics, **compile_kwargs)
 
         callbacks = list(scope.get('callbacks', []))
 
