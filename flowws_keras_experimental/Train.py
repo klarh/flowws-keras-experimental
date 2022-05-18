@@ -2,6 +2,8 @@ import contextlib
 import hashlib
 import json
 import random
+import re
+import time
 
 import flowws
 from flowws import Argument as Arg
@@ -26,6 +28,58 @@ def generator_label_shuffler(seed, gen):
     for batch in gen:
         rng.shuffle(batch[-1])
         yield batch
+
+class TimedBackupAndRestore(keras.callbacks.BackupAndRestore):
+    def __init__(self, time_limit, *args,
+                 train_generator=None, train_generator_steps=None,
+                 validation_generator=None, validation_generator_steps=None,
+                 **kwargs):
+        self.time_limit = time_limit
+        self._last_runtime = 0
+        self._duration = self.parse_time(self.time_limit)
+        self._train_generator = train_generator
+        self._train_generator_steps = train_generator_steps
+        assert (train_generator is None) or (train_generator_steps is not None)
+        self._validation_generator = validation_generator
+        self._validation_generator_steps = validation_generator_steps
+        assert (validation_generator is None) or (validation_generator_steps is not None)
+        super().__init__(*args, **kwargs)
+
+    @staticmethod
+    def parse_time(t):
+        """Parse a duration string (i.e. 18h3m) into a number of seconds"""
+        seconds = dict(h=60*60, m=60, s=1)
+        time_regex = re.compile(r'(?P<count>\d+)(?P<unit>[hms])')
+        components = re.findall(time_regex, t)
+
+        matched_pieces = ''.join([''.join(pair) for pair in components])
+        assert matched_pieces == t, 'Failed to fully parse "{}"'.format(t)
+
+        result = 0
+        for (count, unit) in components:
+            result += int(count)*seconds[unit]
+        return result
+
+    def on_epoch_begin(self, epoch, logs=None):
+        if self._train_generator is not None:
+            for _ in range(epoch*self._train_generator_steps):
+                next(self._train_generator)
+            self._train_generator = None
+        if self._validation_generator is not None:
+            for _ in range(epoch*self._validation_generator_steps):
+                next(self._validation_generator)
+            self._validation_generator = None
+
+    def on_epoch_end(self, *args, **kwargs):
+        current_time = time.time()
+        if current_time > self._last_runtime + self._duration:
+            super().on_epoch_end(*args, **kwargs)
+            self._last_runtime = current_time
+
+    def get_config(self):
+        result = super().get_config()
+        result['time_limit'] = self.time_limit
+        return result
 
 @flowws.add_stage_arguments
 class Train(flowws.Stage):
@@ -81,6 +135,10 @@ class Train(flowws.Stage):
             help='Quantity to monitor for reduce_lr and early_stopping'),
         Arg('shuffle_labels', None, bool, False,
             help='If True, shuffle labels for training'),
+        Arg('checkpoint_dir', None, str,
+            help='If given, save and restore model checkpoints at the given location'),
+        Arg('checkpoint_duration', None, str, '10m',
+            help='Time duration for model checkpointing, if enabled'),
     ]
 
     def run(self, scope, storage):
@@ -152,6 +210,22 @@ class Train(flowws.Stage):
                 monitor=self.arguments['monitor_quantity'],
                 factor=self.arguments['reduce_lr_factor'],
                 verbose=True, min_delta=0))
+
+        if 'checkpoint_dir' in self.arguments:
+            kwargs = {}
+            if 'train_generator' in scope:
+                kwargs['train_generator'] = scope['train_generator']
+                kwargs['train_generator_steps'] = (
+                    self.arguments.get('generator_train_steps', None) or
+                    scope.get('generator_train_steps', None))
+                if 'validation_generator' in scope:
+                    kwargs['validation_generator'] = scope['validation_generator']
+                    kwargs['validation_generator_steps'] = (
+                        self.arguments.get('generator_val_steps', None) or
+                        scope.get('generator_val_steps', None))
+            callbacks.append(TimedBackupAndRestore(
+                self.arguments['checkpoint_duration'],
+                self.arguments['checkpoint_dir'], **kwargs))
 
         verbose = self.arguments['verbose']
         if tfa is not None and verbose and not self.arguments['disable_tqdm']:
