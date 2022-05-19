@@ -53,6 +53,7 @@ class TimedBackupAndRestore(keras.callbacks.BackupAndRestore):
         self._validation_generator = validation_generator
         self._validation_generator_steps = validation_generator_steps
         assert (validation_generator is None) or (validation_generator_steps is not None)
+        self._loaded_epoch = None
         super().__init__(*args, **kwargs)
 
     @staticmethod
@@ -71,6 +72,8 @@ class TimedBackupAndRestore(keras.callbacks.BackupAndRestore):
         return result
 
     def on_epoch_begin(self, epoch, logs=None):
+        if self._loaded_epoch is None:
+            self._loaded_epoch = epoch
         if self._train_generator is not None:
             for _ in range(epoch*self._train_generator_steps):
                 next(self._train_generator)
@@ -223,6 +226,7 @@ class Train(flowws.Stage):
                 factor=self.arguments['reduce_lr_factor'],
                 verbose=True, min_delta=0))
 
+        restore_callback = None
         if 'checkpoint_dir' in self.arguments:
             kwargs = {}
             if 'train_generator' in scope:
@@ -235,9 +239,10 @@ class Train(flowws.Stage):
                     kwargs['validation_generator_steps'] = (
                         self.arguments.get('generator_val_steps', None) or
                         scope.get('generator_val_steps', None))
-            callbacks.append(TimedBackupAndRestore(
+            restore_callback = TimedBackupAndRestore(
                 self.arguments['checkpoint_duration'],
-                self.arguments['checkpoint_dir'], **kwargs))
+                self.arguments['checkpoint_dir'], **kwargs)
+            callbacks.append(restore_callback)
 
         verbose = self.arguments['verbose']
         if tfa is not None and verbose and not self.arguments['disable_tqdm']:
@@ -312,6 +317,10 @@ class Train(flowws.Stage):
                 model.fit(*args, **kwargs)
 
         if self.arguments['epochs']:
-            current_epoch = scope['last_epoch'] = scope['last_epoch'] + len(model.history.history['loss'])
+            last_epoch = scope['last_epoch']
+            if restore_callback is not None:
+                last_epoch = restore_callback._loaded_epoch
+            current_epoch = last_epoch + len(model.history.history['loss'])
+            scope['last_epoch'] = current_epoch
             log_quantities = scope.setdefault('log_quantities', [])
             log_quantities.append((current_epoch, model.history.history))
