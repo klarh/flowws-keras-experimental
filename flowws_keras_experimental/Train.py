@@ -29,6 +29,16 @@ def generator_label_shuffler(seed, gen):
         rng.shuffle(batch[-1])
         yield batch
 
+class SigtermException(Exception):
+    @classmethod
+    def handle(cls, signum, frame):
+        raise cls()
+
+    @classmethod
+    def register(cls):
+        import signal
+        signal.signal(signal.SIGTERM, cls.handle)
+
 class TimedBackupAndRestore(keras.callbacks.BackupAndRestore):
     def __init__(self, time_limit, *args,
                  train_generator=None, train_generator_steps=None,
@@ -139,6 +149,8 @@ class Train(flowws.Stage):
             help='If given, save and restore model checkpoints at the given location'),
         Arg('checkpoint_duration', None, str, '10m',
             help='Time duration for model checkpointing, if enabled'),
+        Arg('catch_sigterm', None, bool, False,
+            help='If True, catch sigterm events and continue to the next stage'),
     ]
 
     def run(self, scope, storage):
@@ -289,13 +301,15 @@ class Train(flowws.Stage):
                 if 'validation_data' in scope:
                     kwargs['validation_data'] = scope['validation_data']
 
-            if self.arguments['catch_keyboard_interrupt']:
-                try:
-                    model.fit(*args, **kwargs)
-                except KeyboardInterrupt:
-                    print('KeyboardInterrupt caught, continuing the stage')
-            else:
-                    model.fit(*args, **kwargs)
+            with contextlib.ExitStack() as st:
+                if self.arguments['catch_keyboard_interrupt']:
+                    st.enter_context(contextlib.suppress(KeyboardInterrupt))
+
+                if self.arguments['catch_sigterm']:
+                    SigtermException.register()
+                    st.enter_context(contextlib.suppress(SigtermException))
+
+                model.fit(*args, **kwargs)
 
         if self.arguments['epochs']:
             current_epoch = scope['last_epoch'] = scope['last_epoch'] + len(model.history.history['loss'])
