@@ -154,6 +154,8 @@ class Train(flowws.Stage):
             help='Time duration for model checkpointing, if enabled'),
         Arg('catch_sigterm', None, bool, False,
             help='If True, catch sigterm events and continue to the next stage'),
+        Arg('terminate_on_nan', None, bool, False,
+            help='If True, terminate training on nan loss'),
     ]
 
     def run(self, scope, storage):
@@ -243,6 +245,9 @@ class Train(flowws.Stage):
                 self.arguments['checkpoint_duration'],
                 self.arguments['checkpoint_dir'], **kwargs)
             callbacks.append(restore_callback)
+
+        if self.arguments['terminate_on_nan']:
+            callbacks.append(keras.callbacks.TerminateOnNaN())
 
         verbose = self.arguments['verbose']
         if tfa is not None and verbose and not self.arguments['disable_tqdm']:
