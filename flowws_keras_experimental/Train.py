@@ -39,6 +39,22 @@ class SigtermException(Exception):
         import signal
         signal.signal(signal.SIGTERM, cls.handle)
 
+class SuppressExceptionScope(contextlib.AbstractContextManager):
+    def __init__(self, scope, exctype, label):
+        self._scope = scope
+        self._exctype = exctype
+        self._label = label
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, exctype, excinst, exctb):
+        result = exctype is not None and issubclass(exctype, self._exctype)
+        if result:
+            print('Caught {}, exiting for {}'.format(str(exctype), self._label))
+            self._scope.setdefault('exit_reason', []).append(self._label)
+        return result
+
 class TimedBackupAndRestore(keras.callbacks.BackupAndRestore):
     def __init__(self, time_limit, *args,
                  train_generator=None, train_generator_steps=None,
@@ -313,11 +329,13 @@ class Train(flowws.Stage):
 
             with contextlib.ExitStack() as st:
                 if self.arguments['catch_keyboard_interrupt']:
-                    st.enter_context(contextlib.suppress(KeyboardInterrupt))
+                    st.enter_context(SuppressExceptionScope(
+                        scope, KeyboardInterrupt, 'catch_keyboard_interrupt'))
 
                 if self.arguments['catch_sigterm']:
                     SigtermException.register()
-                    st.enter_context(contextlib.suppress(SigtermException))
+                    st.enter_context(SuppressExceptionScope(
+                        scope, SigtermException, 'catch_sigterm'))
 
                 model.fit(*args, **kwargs)
 
