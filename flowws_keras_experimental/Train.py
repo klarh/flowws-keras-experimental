@@ -1,3 +1,4 @@
+import collections
 import contextlib
 import hashlib
 import json
@@ -7,6 +8,7 @@ import time
 
 import flowws
 from flowws import Argument as Arg
+import gtar
 import keras_gtar
 import numpy as np
 import tensorflow as tf
@@ -54,6 +56,35 @@ class SuppressExceptionScope(contextlib.AbstractContextManager):
             print('Caught {}, exiting for {}'.format(str(exctype), self._label))
             self._scope.setdefault('exit_reason', []).append(self._label)
         return result
+
+class GTARLog(keras.callbacks.Callback):
+    def __init__(self, filename, buffer_size=8, group='gtar_log'):
+        self.buffers = collections.defaultdict(list)
+        self.handle = gtar.GTAR(filename, 'a')
+        self.buffer_size = buffer_size
+        self.group = group
+
+    def flush(self, key, frame):
+        val = self.buffers.pop(key)
+        val = np.asarray(val)
+        dtype = str(val.dtype).replace('f', 'F').replace('u', 'U').replace('i', 'I')
+        fmt = getattr(gtar.Format, dtype, gtar.Format.Float32)
+        rec = gtar.Record(self.group, key, frame, gtar.Behavior.Continuous, fmt,
+                          gtar.Resolution.Uniform)
+        self.handle.writeRecord(rec, val)
+
+    def on_epoch_end(self, epoch, logs=None):
+        logs = logs or {}
+        for (k, v) in logs.items():
+            self.buffers[k].append(v)
+
+        frame = str(epoch)
+        if any(len(v) >= self.buffer_size for v in self.buffers.values()):
+            for k in list(self.buffers):
+                self.flush(k, frame)
+
+    def on_train_end(self, logs=None):
+        self.handle.close()
 
 class TimedBackupAndRestore(keras.callbacks.BackupAndRestore):
     def __init__(self, time_limit, *args,
@@ -172,6 +203,8 @@ class Train(flowws.Stage):
             help='If True, catch sigterm events and continue to the next stage'),
         Arg('terminate_on_nan', None, bool, False,
             help='If True, terminate training on nan loss'),
+        Arg('gtar_log_period', None, int,
+            help='Number of epochs to buffer for logging quantities via GTAR'),
     ]
 
     def run(self, scope, storage):
@@ -328,6 +361,14 @@ class Train(flowws.Stage):
                     kwargs['validation_data'] = scope['validation_data']
 
             with contextlib.ExitStack() as st:
+                if self.arguments.get('gtar_log_period', None):
+                    storage_handle = st.enter_context(storage.open(
+                        scope.get('dump_filename', 'dump.sqlite'), 'a',
+                        [], on_filesystem=True))
+                    filename = storage_handle.name
+                    callback = GTARLog(filename, self.arguments['gtar_log_period'])
+                    callbacks.append(callback)
+
                 if self.arguments['catch_keyboard_interrupt']:
                     st.enter_context(SuppressExceptionScope(
                         scope, KeyboardInterrupt, 'catch_keyboard_interrupt'))
