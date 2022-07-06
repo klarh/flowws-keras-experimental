@@ -63,9 +63,12 @@ class GTARLog(keras.callbacks.Callback):
         self.handle = gtar.GTAR(filename, 'a')
         self.buffer_size = buffer_size
         self.group = group
+        self._last_frame = '0'
 
     def flush(self, key, frame):
         val = self.buffers.pop(key)
+        if not len(val):
+            return
         val = np.asarray(val)
         dtype = str(val.dtype).replace('f', 'F').replace('u', 'U').replace('i', 'I')
         fmt = getattr(gtar.Format, dtype, gtar.Format.Float32)
@@ -78,12 +81,14 @@ class GTARLog(keras.callbacks.Callback):
         for (k, v) in logs.items():
             self.buffers[k].append(v)
 
-        frame = str(epoch)
+        frame = self._last_frame = str(epoch)
         if any(len(v) >= self.buffer_size for v in self.buffers.values()):
             for k in list(self.buffers):
                 self.flush(k, frame)
 
     def on_train_end(self, logs=None):
+        for k in list(self.buffers):
+            self.flush(k, self._last_frame)
         self.handle.close()
 
 class TimedBackupAndRestore(keras.callbacks.BackupAndRestore):
