@@ -210,6 +210,8 @@ class Train(flowws.Stage):
             help='If True, terminate training on nan loss'),
         Arg('gtar_log_period', None, int,
             help='Number of epochs to buffer for logging quantities via GTAR'),
+        Arg('gtar_log_modifiers', None, [str],
+            help='Filename modifiers for live logging of quantities via GTAR'),
     ]
 
     def run(self, scope, storage):
@@ -367,9 +369,10 @@ class Train(flowws.Stage):
 
             with contextlib.ExitStack() as st:
                 if self.arguments.get('gtar_log_period', None):
+                    mods = self.arguments['gtar_log_modifiers']
                     storage_handle = st.enter_context(storage.open(
                         scope.get('dump_filename', 'dump.sqlite'), 'a',
-                        [], on_filesystem=True))
+                        mods, on_filesystem=True))
                     filename = storage_handle.name
                     callback = GTARLog(filename, self.arguments['gtar_log_period'])
                     callbacks.append(callback)
