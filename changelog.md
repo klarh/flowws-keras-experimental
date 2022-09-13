@@ -1,3 +1,13 @@
+# v0.3.0 - 2022/09/13
+
+## Added
+
+- Timed checkpoints to `Train`
+- GPU memory fraction argument to `InitializeTF`
+- Ability to catch sigterms to `Train`
+- Ability to stop training on nans in `Train`
+- Continuously log training metrics for `Train`
+
 # v0.2.0 - 2022/04/01
 
 ## Added
