@@ -212,6 +212,8 @@ class Train(flowws.Stage):
             help='Number of epochs to buffer for logging quantities via GTAR'),
         Arg('gtar_log_modifiers', None, [str],
             help='Filename modifiers for live logging of quantities via GTAR'),
+        Arg('l2_regularization', None, float,
+            help='If given, add L2 regularization for all trainable model weights'),
     ]
 
     def run(self, scope, storage):
@@ -253,6 +255,15 @@ class Train(flowws.Stage):
             should_compile = True
         else:
             model = scope['model']
+
+        if self.arguments.get('l2_regularization', None):
+            should_compile = True
+            l2 = self.arguments['l2_regularization']
+            terms = []
+            for weight in model.trainable_weights:
+                terms.append(tf.reduce_sum(tf.square(weight))*l2)
+            if terms:
+                model.add_loss(lambda: sum(terms))
 
         if self.arguments['summarize']:
             model.summary()
