@@ -2,6 +2,7 @@ import collections
 import contextlib
 import hashlib
 import json
+import os
 import random
 import re
 import time
@@ -91,10 +92,65 @@ class GTARLog(keras.callbacks.Callback):
             self.flush(k, self._last_frame)
         self.handle.close()
 
+class BackedUpMixin:
+    def backup(self, location):
+        state = np.zeros(shape=(), dtype=self._BACKUP_DTYPE)
+        for name in state.dtype.fields:
+            state[name] = getattr(self, name)
+        with open(location, 'wb') as f:
+            np.save(f, state)
+
+    def restore(self, location):
+        try:
+            with open(location, 'rb') as f:
+                state = np.load(f)
+            for name in state.dtype.fields:
+                setattr(self, name, state[name])
+            return state
+        except FileNotFoundError:
+            return None
+
+class BackedUpEarlyStopping(keras.callbacks.EarlyStopping, BackedUpMixin):
+    _BACKUP_DTYPE = np.dtype([
+        ('wait', np.int64),
+        ('best', np.float64),
+        ('best_epoch', np.int64),
+    ])
+
+    def backup(self, location):
+        super().backup(location)
+        if self.best_weights is not None:
+            num_best_weights = len(self.best_weights)
+            weight_location = location + '_best_weights.npz'
+            kwargs = {'weight_{}'.format(i): w
+                      for (i, w) in enumerate(self.best_weights)}
+            with open(weight_location, 'wb') as f:
+                np.savez(f, **kwargs)
+
+    def restore(self, location):
+        result = super().restore(location)
+        weight_location = location + '_best_weights.npz'
+        if os.path.exists(weight_location):
+            with open(weight_location, 'rb') as f:
+                arch = np.load(f)
+                num_best_weights = len(arch.files)
+                weights = [arch['weight_{}'.format(i)]
+                           for i in range(num_best_weights)]
+            self.best_weights = weights
+        return result
+
+class BackedUpReduceLROnPlateau(keras.callbacks.ReduceLROnPlateau, BackedUpMixin):
+    _BACKUP_DTYPE = np.dtype([
+        ('cooldown_counter', np.int64),
+        ('wait', np.int64),
+        ('best', np.float64),
+    ])
+
 class TimedBackupAndRestore(keras.callbacks.BackupAndRestore):
     def __init__(self, time_limit, *args,
                  train_generator=None, train_generator_steps=None,
                  validation_generator=None, validation_generator_steps=None,
+                 backup_callbacks={},
                  **kwargs):
         self.time_limit = time_limit
         self._last_runtime = 0
@@ -105,6 +161,7 @@ class TimedBackupAndRestore(keras.callbacks.BackupAndRestore):
         self._validation_generator = validation_generator
         self._validation_generator_steps = validation_generator_steps
         assert (validation_generator is None) or (validation_generator_steps is not None)
+        self.backup_callbacks = dict(backup_callbacks)
         self._loaded_epoch = None
         super().__init__(*args, **kwargs)
 
@@ -140,6 +197,21 @@ class TimedBackupAndRestore(keras.callbacks.BackupAndRestore):
         if current_time > self._last_runtime + self._duration:
             super().on_epoch_end(*args, **kwargs)
             self._last_runtime = current_time
+
+            for (name, cbk) in self.backup_callbacks.items():
+                if cbk is None:
+                    continue
+                location = os.path.join(self.backup_dir, name)
+                cbk.backup(location)
+
+    def on_train_begin(self, *args, **kwargs):
+        super().on_train_begin(*args, **kwargs)
+
+        for (name, cbk) in self.backup_callbacks.items():
+            if cbk is None:
+                continue
+            location = os.path.join(self.backup_dir, name)
+            cbk.restore(location)
 
     def get_config(self):
         result = super().get_config()
@@ -282,18 +354,22 @@ class Train(flowws.Stage):
 
         callbacks = list(scope.get('callbacks', []))
 
+        early_stopping_callback = None
         if 'early_stopping' in self.arguments:
-            callbacks.append(keras.callbacks.EarlyStopping(
+            early_stopping_callback = BackedUpEarlyStopping(
                 patience=self.arguments['early_stopping'],
                 monitor=self.arguments['monitor_quantity'],
-                restore_best_weights=self.arguments.get('early_stopping_best', False)))
+                restore_best_weights=self.arguments.get('early_stopping_best', False))
+            callbacks.append(early_stopping_callback)
 
+        reduce_lr_callback = None
         if 'reduce_lr' in self.arguments:
-            callbacks.append(keras.callbacks.ReduceLROnPlateau(
+            reduce_lr_callback = BackedUpReduceLROnPlateau(
                 patience=self.arguments['reduce_lr'],
                 monitor=self.arguments['monitor_quantity'],
                 factor=self.arguments['reduce_lr_factor'],
-                verbose=True, min_delta=0))
+                verbose=True, min_delta=0)
+            callbacks.append(reduce_lr_callback)
 
         restore_callback = None
         if 'checkpoint_dir' in self.arguments:
@@ -308,6 +384,10 @@ class Train(flowws.Stage):
                     kwargs['validation_generator_steps'] = (
                         self.arguments.get('generator_val_steps', None) or
                         scope.get('generator_val_steps', None))
+            kwargs['backup_callbacks'] = dict(
+                early_stopping=early_stopping_callback,
+                reduce_lr=reduce_lr_callback,
+            )
             restore_callback = TimedBackupAndRestore(
                 self.arguments['checkpoint_duration'],
                 self.arguments['checkpoint_dir'], **kwargs)
