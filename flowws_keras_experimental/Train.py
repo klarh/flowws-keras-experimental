@@ -345,8 +345,10 @@ class Train(flowws.Stage):
                 optimizer = keras.optimizers.get(optimizer)
 
             if 'accumulate_gradients' in self.arguments:
-                from .accumulate_gradients import convert
-                convert(optimizer, self.arguments['accumulate_gradients'])
+                from gradient_accumulator import GradientAccumulateModel
+                model = GradientAccumulateModel(
+                    accum_steps=self.arguments['accumulate_gradients'],
+                    inputs=model.input, outputs=model.output)
 
             compile_kwargs = scope.get('compile_kwargs', {})
 

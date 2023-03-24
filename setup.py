@@ -122,6 +122,7 @@ setup(name='flowws-keras-experimental',
       extras_require={},
       install_requires=[
           'flowws',
+          'gradient-accumulator',
       ],
       license='MIT',
       long_description=long_description,
