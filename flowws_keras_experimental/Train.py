@@ -218,6 +218,21 @@ class TimedBackupAndRestore(keras.callbacks.BackupAndRestore):
         result['time_limit'] = self.time_limit
         return result
 
+class TimingCallback(keras.callbacks.Callback):
+    def on_epoch_begin(self, epoch, logs=None):
+        self.epoch_begin_time = time.time()
+
+    def on_epoch_end(self, epoch, logs=None):
+        logs = {} if logs is None else logs
+        logs['batch_time'] = self.batch_time
+        logs['epoch_time'] = time.time() - self.epoch_begin_time
+
+    def on_batch_end(self, batch, logs=None):
+        self.batch_time = (time.time() - self.epoch_begin_time)/(batch + 1)
+
+    def get_config(self):
+        return super().get_config()
+
 @flowws.add_stage_arguments
 class Train(flowws.Stage):
     """Build a model and perform some number of training steps.
@@ -355,6 +370,9 @@ class Train(flowws.Stage):
             model.compile(optimizer, loss=scope['loss'], metrics=metrics, **compile_kwargs)
 
         callbacks = list(scope.get('callbacks', []))
+
+        if not any(isinstance(c, TimingCallback) for c in callbacks):
+            callbacks.append(TimingCallback())
 
         early_stopping_callback = None
         if 'early_stopping' in self.arguments:
