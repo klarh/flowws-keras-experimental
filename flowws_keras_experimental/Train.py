@@ -301,6 +301,8 @@ class Train(flowws.Stage):
             help='Filename modifiers for live logging of quantities via GTAR'),
         Arg('l2_regularization', None, float,
             help='If given, add L2 regularization for all trainable model weights'),
+        Arg('fake_early_stopping_logs', None, bool, False,
+            help='If True, pad log data to the given number of epochs after early stopping'),
     ]
 
     def run(self, scope, storage):
@@ -478,6 +480,8 @@ class Train(flowws.Stage):
                 if 'validation_data' in scope:
                     kwargs['validation_data'] = scope['validation_data']
 
+            scope.pop('exit_reason', None)
+
             with contextlib.ExitStack() as st:
                 if self.arguments.get('gtar_log_period', None):
                     mods = self.arguments['gtar_log_modifiers']
@@ -506,4 +510,14 @@ class Train(flowws.Stage):
             current_epoch = last_epoch + len(model.history.history['loss'])
             scope['last_epoch'] = current_epoch
             log_quantities = scope.setdefault('log_quantities', [])
-            log_quantities.append((current_epoch, model.history.history))
+
+            history = model.history.history
+            if self.arguments['fake_early_stopping_logs'] and scope.get('exit_reason', None) is None:
+                for name, value in history.items():
+                    pad = value[-1]
+                    for _ in range(len(value), self.arguments['epochs']):
+                        value.append(pad)
+
+                current_epoch = last_epoch + len(model.history.history['loss'])
+
+            log_quantities.append((current_epoch, history))
